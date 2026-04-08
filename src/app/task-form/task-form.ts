@@ -2,10 +2,13 @@ import { Component, EventEmitter, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Task } from '../../models/task';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
+import { NzButtonModule } from 'ng-zorro-antd/button';
 
 @Component({
   selector: 'app-task-form',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NzInputModule, NzDatePickerModule, NzButtonModule],
   templateUrl: './task-form.html',
   styleUrl: './task-form.css',
 })

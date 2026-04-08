@@ -4,10 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { TaskListItem } from '../task-list-item/task-list-item';
 import { TaskForm } from '../task-form/task-form';
 import { Task } from '../../models/task';
+import { NzListModule } from 'ng-zorro-antd/list';
 
 @Component({
   selector: 'app-task-list',
-  imports: [CommonModule, FormsModule, TaskListItem, TaskForm],
+  imports: [CommonModule, FormsModule, TaskListItem, TaskForm, NzListModule],
   templateUrl: './task-list.html',
   styleUrl: './task-list.css',
 })
