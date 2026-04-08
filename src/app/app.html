@@ -1,18 +1,4 @@
-<p>Hello World</p>
-<ul>
-  <li *ngFor="let task of tasks" class="{{ task.done ? 'done' : '' }}">
-    <label>
-      <input type="checkbox" [(ngModel)]="task.done">
-      {{ task.title }}
-      (期日：{{ task.deadline | date:'yyyy/MM/dd' }})
-      <span *ngIf="isOverdue(task)" class="overdue">期限切れ</span>
-    </label>
-  </li>
-  <li>
-    <input type="text" [(ngModel)]="newTask.title" #title="ngModel" required>
-    <input type="date" [(ngModel)]="newTask.deadline">
-    <button (click)="addTask()" [disabled]="title.invalid">追加</button>
-  </li>
-</ul>
-
-今日の日付： {{today | date:'yyyy/MM/dd' }}
+<!-- NG-ZORRO -->
+<a href="https://github.com/NG-ZORRO/ng-zorro-antd" target="_blank" style="display: flex;align-items: center;justify-content: center;height: 100%;width: 100%;">
+  <img height="300" alt="logo" src="https://img.alicdn.com/tfs/TB1X.qJJgHqK1RjSZFgXXa7JXXa-89-131.svg">
+</a>
