@@ -1,0 +1,9 @@
+app-task-list {
+    display: block;
+    margin: 0 1rem;
+}
+
+button {
+    width: 18%;
+    margin-left: 80%;
+}

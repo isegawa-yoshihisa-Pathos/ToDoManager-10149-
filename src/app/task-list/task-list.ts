@@ -30,6 +30,7 @@ ngOnInit() {
       map((rows) =>
         (rows as Record<string, unknown>[]).map((data) => {
           const raw = data['deadline'];
+          const done = Boolean(data['done']);
           const deadline =
             raw instanceof Timestamp
               ? raw.toDate()
@@ -38,7 +39,7 @@ ngOnInit() {
                 : raw
                   ? new Date(raw as string | number)
                   : null;
-          return { ...data, deadline } as Task;
+          return { ...data, done,deadline } as Task;
         }),
       ),
     )
