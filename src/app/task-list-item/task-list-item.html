@@ -16,8 +16,20 @@
     </label>
   </div>
 
-  <div class="right">
+  <div class="center">
     <nz-tag nzColor="error" *ngIf="isOverdue(task)">期日超過</nz-tag>
-    <nz-tag nzColor="default" *ngIf="task.deadline&&!task.done">期日：{{ task.deadline|date:'yyyy/MM/dd' }}</nz-tag>
+    <nz-tag nzColor="default" *ngIf="task.deadline && !task.done">期日：{{ task.deadline | date: 'yyyy/MM/dd' }}</nz-tag>
+  </div>
+
+  <div class="actions">
+    <button nz-button nzType="default" type="button" (click)="openDetail($event)">詳細</button>
+    <button
+      nz-button
+      nzType="default"
+      nzDanger
+      type="button"
+      class="delete-btn"
+      (click)="deleteTask($event)"
+      aria-label="削除">削除</button>
   </div>
 </div>

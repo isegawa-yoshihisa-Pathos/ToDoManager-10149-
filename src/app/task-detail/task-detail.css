@@ -1,0 +1,71 @@
+.state {
+  margin: 1rem;
+}
+
+.detail-header {
+  margin: 0 1rem 0.5rem;
+}
+
+.detail-title {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.detail-body {
+  max-width: 560px;
+  margin: 0 1rem 2rem;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.swatch.selected {
+  border-color: rgba(0, 0, 0, 0.45);
+}
+
+.date-input {
+  width: 100%;
+  max-width: 280px;
+}
+
+.memo {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.error {
+  color: #cf1322;
+  margin: 0 0 8px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 1rem;
+}

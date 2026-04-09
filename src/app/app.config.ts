@@ -11,6 +11,8 @@ import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
+import { provideNzIcons } from 'ng-zorro-antd/icon';
+import { DeleteOutline } from '@ant-design/icons-angular/icons';
 import { routes } from './app.routes';
 registerLocaleData(localeJa);
 
@@ -34,6 +36,7 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     { provide: LOCALE_ID, useValue: 'ja' },
     provideNzI18n(en_US),
+    provideNzIcons([DeleteOutline]),
     provideFirebaseApp(() => initializeApp(firebaseConfig)),
     provideFirestore(() => getFirestore()),
   ],

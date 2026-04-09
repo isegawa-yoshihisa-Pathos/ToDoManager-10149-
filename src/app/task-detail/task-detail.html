@@ -1,0 +1,59 @@
+@if (loading) {
+  <p class="state">読み込み中…</p>
+} @else if (notFound) {
+  <p class="state">タスクが見つかりません。</p>
+  <button nz-button nzType="primary" (click)="back()">一覧へ戻る</button>
+} @else {
+  <div class="detail-header">
+    <button nz-button nzType="link" type="button" (click)="back()">← 一覧へ戻る</button>
+    <h1 class="detail-title">{{ pageTitle() }}</h1>
+  </div>
+
+  <div class="detail-body">
+    <div class="field">
+      <label class="field-label">タスク名</label>
+      <input nz-input [(ngModel)]="editTitle" name="title" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">色</label>
+      <div class="palette" role="listbox" aria-label="ラベル色">
+        <button
+          type="button"
+          *ngFor="let c of colorChart"
+          class="swatch"
+          [style.backgroundColor]="c"
+          [class.selected]="editLabel === c"
+          [attr.aria-pressed]="editLabel === c"
+          (click)="editLabel = c"
+        ></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">期日</label>
+      <nz-date-picker [(ngModel)]="editDeadline" name="deadline" class="date-input"></nz-date-picker>
+    </div>
+
+    <div class="field">
+      <label class="field-label">メモ</label>
+      <textarea
+        nz-input
+        class="memo"
+        [(ngModel)]="editDescription"
+        name="description"
+        rows="8"
+        placeholder="自由記述"
+      ></textarea>
+    </div>
+
+    @if (saveError) {
+      <p class="error">{{ saveError }}</p>
+    }
+
+    <div class="actions">
+      <button nz-button (click)="back()">キャンセル</button>
+      <button nz-button nzType="primary" (click)="save()">保存</button>
+    </div>
+  </div>
+}

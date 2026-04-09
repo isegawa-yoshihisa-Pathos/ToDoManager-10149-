@@ -4,4 +4,5 @@ export interface Task {
   label: string;
   done: boolean;
   deadline?: Date | null;
+  description?: string;
 }

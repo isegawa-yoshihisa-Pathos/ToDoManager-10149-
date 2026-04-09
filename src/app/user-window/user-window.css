@@ -25,10 +25,28 @@ app-task-list {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
   margin: 0 1rem 1rem;
   padding-bottom: 10px;
   border-bottom: 1px solid #f0f0f0;
+}
+
+.nav-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-cluster-start {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.nav-cluster-end {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .nav-tab {
@@ -62,45 +80,6 @@ app-task-list {
 
 .section {
   margin-bottom: 2rem;
-}
-
-.project-hub {
-  margin: 0 1rem;
-}
-
-.project-forms {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-.form-card {
-  flex: 1;
-  min-width: 260px;
-  max-width: 400px;
-  padding: 16px;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  background: #fafafa;
-}
-
-.card-title {
-  margin: 0 0 12px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.hint {
-  margin: 0 0 12px;
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.55);
-}
-
-.field {
-  display: block;
-  width: 100%;
-  margin-bottom: 10px;
 }
 
 .project-detail {

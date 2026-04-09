@@ -94,6 +94,17 @@ export class ProjectService {
     });
   }
 
+  /** 自分だけメンバーと参加一覧から外す。プロジェクト本体・他メンバー・タスクは残る。 */
+  async leaveProject(projectId: string, username: string): Promise<void> {
+    const memberRef = doc(this.firestore, 'projects', projectId, 'members', username);
+    const memberSnap = await getDoc(memberRef);
+    if (!memberSnap.exists()) {
+      throw new Error('このプロジェクトのメンバーではありません');
+    }
+    const membershipRef = doc(this.firestore, 'accounts', username, 'projectMemberships', projectId);
+    await Promise.all([deleteDoc(memberRef), deleteDoc(membershipRef)]);
+  }
+
   /** メンバーなら誰でも削除可能。サブコレクションと全員の membership を消す。 */
   async deleteProject(projectId: string, requesterUsername: string): Promise<void> {
     const memberRef = doc(this.firestore, 'projects', projectId, 'members', requesterUsername);

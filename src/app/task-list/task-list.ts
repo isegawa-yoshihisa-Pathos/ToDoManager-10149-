@@ -77,7 +77,9 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
                 : raw
                   ? new Date(raw as string | number)
                   : null;
-          return { ...data, done,label,deadline } as Task;
+          const description =
+            typeof data['description'] === 'string' ? data['description'] : '';
+          return { ...data, done, label, deadline, description } as Task;
         }),
       ),
     )

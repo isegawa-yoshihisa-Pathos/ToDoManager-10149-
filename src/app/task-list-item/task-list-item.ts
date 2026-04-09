@@ -1,22 +1,26 @@
 import { Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Task } from '../../models/task';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { doc, Firestore, updateDoc } from '@angular/fire/firestore';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { deleteDoc, doc, Firestore, updateDoc } from '@angular/fire/firestore';
 import { AuthService } from '../auth.service';
 import { TaskScope } from '../task-scope';
 
 @Component({
   selector: 'app-task-list-item',
-  imports: [CommonModule, FormsModule, NzCheckboxModule, NzTagModule],
+  imports: [CommonModule, FormsModule, NzCheckboxModule, NzTagModule, NzButtonModule, NzIconModule],
   templateUrl: './task-list-item.html',
   styleUrl: './task-list-item.css',
 })
 export class TaskListItem implements OnInit {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
   ngOnInit() {}
 
@@ -53,5 +57,35 @@ export class TaskListItem implements OnInit {
       task.deadline &&
       task.deadline.getTime() < start.getTime()
     );
+  }
+
+  openDetail(ev: Event): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const id = this.task.id;
+    if (!id) {
+      return;
+    }
+    const scope =
+      this.taskScope.kind === 'private' ? 'private' : this.taskScope.projectId;
+    void this.router.navigate(['/task', scope, id]);
+  }
+
+  deleteTask(ev: Event): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const id = this.task.id;
+    const username = this.auth.username();
+    if (!id || !username) {
+      return;
+    }
+    if (!confirm('このタスクを削除しますか？')) {
+      return;
+    }
+    const ref =
+      this.taskScope.kind === 'private'
+        ? doc(this.firestore, 'accounts', username, 'tasks', id)
+        : doc(this.firestore, 'projects', this.taskScope.projectId, 'tasks', id);
+    deleteDoc(ref).catch((err) => console.error('deleteDoc failed:', err));
   }
 }

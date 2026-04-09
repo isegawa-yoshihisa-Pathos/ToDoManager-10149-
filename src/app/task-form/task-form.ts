@@ -27,6 +27,7 @@ export class TaskForm implements OnInit {
     label: DEFAULT_TASK_LABEL_COLOR,
     done: false,
     deadline: null,
+    description: '',
   };
 
   submit(): void {
@@ -35,12 +36,14 @@ export class TaskForm implements OnInit {
       label: this.newTask.label?.trim() || DEFAULT_TASK_LABEL_COLOR,
       done: false,
       deadline: this.newTask.deadline ? new Date(this.newTask.deadline) : null,
+      description: '',
     });
     this.newTask = {
       title: '',
       label: DEFAULT_TASK_LABEL_COLOR,
       done: false,
       deadline: null,
+      description: '',
     };
   }
 }

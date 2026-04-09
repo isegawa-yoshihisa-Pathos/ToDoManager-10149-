@@ -1,11 +1,10 @@
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { TaskList } from '../task-list/task-list';
 import { ProjectMembers } from '../project-members/project-members';
+import { ProjectHub, ProjectOpenedPayload } from '../project-hub/project-hub';
 import { NzPageHeaderModule } from 'ng-zorro-antd/page-header';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzInputModule } from 'ng-zorro-antd/input';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth.service';
 import { ProjectService } from '../project.service';
@@ -20,12 +19,11 @@ import { Subscription } from 'rxjs';
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     TaskList,
     ProjectMembers,
+    ProjectHub,
     NzPageHeaderModule,
     NzButtonModule,
-    NzInputModule,
   ],
   templateUrl: './user-window.html',
   styleUrl: './user-window.css',
@@ -40,7 +38,6 @@ export class UserWindow implements OnInit, OnDestroy {
 
   readonly privateScope: TaskScope = { kind: 'private' };
 
-  /** 上部ナビ: プライベート vs プロジェクト欄 */
   mainTab = signal<'private' | 'project'>('private');
   activeProject = signal<{ id: string; name: string } | null>(null);
 
@@ -51,11 +48,6 @@ export class UserWindow implements OnInit, OnDestroy {
     }
     return { kind: 'project', projectId: p.id };
   });
-
-  createProjectName = '';
-  createPassword = '';
-  joinProjectName = '';
-  joinPassword = '';
 
   memberships: { projectId: string; projectName: string }[] = [];
 
@@ -104,10 +96,16 @@ export class UserWindow implements OnInit, OnDestroy {
     this.persistSession();
   }
 
-  /** 「プロジェクト」ラベル: ハブ（作成・参加）を表示 */
   selectProjectHub(): void {
     this.mainTab.set('project');
     this.activeProject.set(null);
+    this.persistSession();
+  }
+
+  /** 作成・参加完了時（子コンポーネントから） */
+  onProjectOpened(payload: ProjectOpenedPayload): void {
+    this.mainTab.set('project');
+    this.activeProject.set({ id: payload.projectId, name: payload.projectName });
     this.persistSession();
   }
 
@@ -117,52 +115,33 @@ export class UserWindow implements OnInit, OnDestroy {
     void this.router.navigate(['/login']);
   }
 
-  async onCreateProject(): Promise<void> {
-    const username = this.auth.username();
-    if (!username) {
-      return;
-    }
-    try {
-      const row = await this.projectService.createProject(
-        this.createProjectName,
-        this.createPassword,
-        username,
-      );
-      this.createProjectName = '';
-      this.createPassword = '';
-      this.mainTab.set('project');
-      this.activeProject.set({ id: row.projectId, name: row.projectName });
-      this.persistSession();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '作成に失敗しました');
-    }
-  }
-
-  async onJoinProject(): Promise<void> {
-    const username = this.auth.username();
-    if (!username) {
-      return;
-    }
-    try {
-      const row = await this.projectService.joinProject(
-        this.joinProjectName,
-        this.joinPassword,
-        username,
-      );
-      this.joinProjectName = '';
-      this.joinPassword = '';
-      this.mainTab.set('project');
-      this.activeProject.set({ id: row.projectId, name: row.projectName });
-      this.persistSession();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '参加に失敗しました');
-    }
-  }
-
   openProject(p: { projectId: string; projectName: string }): void {
     this.mainTab.set('project');
     this.activeProject.set({ id: p.projectId, name: p.projectName });
     this.persistSession();
+  }
+
+  async onLeaveProject(): Promise<void> {
+    const p = this.activeProject();
+    const username = this.auth.username();
+    if (!p || !username) {
+      return;
+    }
+    if (
+      !confirm(
+        `「${p.name}」から脱退します。タブ一覧からも消えます。あとから「参加」で再参加できます。よろしいですか？`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await this.projectService.leaveProject(p.id, username);
+      this.activeProject.set(null);
+      this.selectProjectHub();
+      this.persistSession();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '脱退に失敗しました');
+    }
   }
 
   async onDeleteProject(): Promise<void> {

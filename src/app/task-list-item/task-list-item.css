@@ -1,18 +1,40 @@
 .task-row {
-  padding: 6px 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 8px;
   border-radius: 4px;
-  overflow: auto;
+  flex-wrap: wrap;
 }
 
 .left {
-  float: left;
+  flex: 1 1 auto;
+  min-width: 120px;
+  padding: 5px;
 }
 
-.right {
-  float: right;
-  :last-child {
-    margin-right: 0;
-  }
+.center {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  padding: 5px;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.delete-btn {
+  padding: 0 4px;
+  min-width: auto;
 }
 
 .done {
@@ -22,8 +44,4 @@
 
 .task-row.overdue {
   box-shadow: inset 4px 0 0 #f5222d;
-}
-
-.task-row.done {
-  opacity: 0.5;
 }

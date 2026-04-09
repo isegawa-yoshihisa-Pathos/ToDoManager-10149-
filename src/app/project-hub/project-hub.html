@@ -1,0 +1,43 @@
+<div class="project-hub">
+  <div class="project-forms">
+    <div class="form-card">
+      <h3 class="card-title">プロジェクトを作成</h3>
+      <input
+        nz-input
+        class="field"
+        placeholder="プロジェクト名"
+        [(ngModel)]="createProjectName"
+        name="createProjectName"
+      />
+      <input
+        nz-input
+        class="field"
+        type="password"
+        placeholder="パスワード"
+        [(ngModel)]="createPassword"
+        name="createPassword"
+      />
+      <button nz-button nzType="primary" type="button" (click)="onCreateProject()">作成</button>
+    </div>
+    <div class="form-card">
+      <h3 class="card-title">プロジェクトに参加</h3>
+      <p class="hint">プロジェクト名とパスワードが分かれば誰でも参加できます。</p>
+      <input
+        nz-input
+        class="field"
+        placeholder="プロジェクト名"
+        [(ngModel)]="joinProjectName"
+        name="joinProjectName"
+      />
+      <input
+        nz-input
+        class="field"
+        type="password"
+        placeholder="パスワード"
+        [(ngModel)]="joinPassword"
+        name="joinPassword"
+      />
+      <button nz-button nzType="primary" type="button" (click)="onJoinProject()">参加</button>
+    </div>
+  </div>
+</div>
