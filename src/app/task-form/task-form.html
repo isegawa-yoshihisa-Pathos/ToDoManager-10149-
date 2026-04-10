@@ -1,17 +1,42 @@
 <div class="form-block">
-  <nz-input-group nzCompact>
-    <input nz-input placeholder="To do" [(ngModel)]="newTask.title" name="title" #title="ngModel" autofocus required>
-    <nz-select
-      [(ngModel)]="newTask.priority"
-      name="priority"
-      nzPlaceHolder="優先度"
-      class="priority-select"
-    >
-      <nz-option *ngFor="let p of priorityOptions" [nzValue]="p.value" [nzLabel]="p.label"></nz-option>
-    </nz-select>
-    <nz-date-picker [(ngModel)]="newTask.deadline"></nz-date-picker>
-    <button nz-button nzType="primary" type='submit' (click)="submit()" [disabled]="title.invalid">追加</button>
-  </nz-input-group>
+  <div class="form-row">
+    <mat-form-field appearance="outline" class="title-field" subscriptSizing="dynamic">
+      <mat-label>To do</mat-label>
+      <input
+        matInput
+        placeholder="To do"
+        [(ngModel)]="newTask.title"
+        name="title"
+        #title="ngModel"
+        required
+        autofocus
+      />
+    </mat-form-field>
+    @if (taskScope.kind === 'project') {
+      <mat-form-field appearance="outline" class="assignee-select" subscriptSizing="dynamic">
+        <mat-label>担当</mat-label>
+        <mat-select [(ngModel)]="newTask.assignee" name="assignee">
+          <mat-option [value]="assigneeNone">未割り当て</mat-option>
+          <mat-option *ngFor="let m of projectMembers" [value]="m.username">{{ m.username }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    }
+    <mat-form-field appearance="outline" class="priority-select" subscriptSizing="dynamic">
+      <mat-label>優先度</mat-label>
+      <mat-select [(ngModel)]="newTask.priority" name="priority">
+        <mat-option *ngFor="let p of priorityOptions" [value]="p.value">{{ p.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+      <mat-label>期日</mat-label>
+      <input matInput [matDatepicker]="dp" [(ngModel)]="newTask.deadline" name="deadline" />
+      <mat-datepicker-toggle matIconSuffix [for]="dp"></mat-datepicker-toggle>
+      <mat-datepicker #dp></mat-datepicker>
+    </mat-form-field>
+    <button mat-flat-button color="primary" type="button" (click)="submit()" [disabled]="title.invalid">
+      追加
+    </button>
+  </div>
   <div class="palette" role="listbox" aria-label="ラベル色">
     <button
       type="button"

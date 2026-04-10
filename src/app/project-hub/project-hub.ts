@@ -1,8 +1,9 @@
 import { Component, EventEmitter, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzInputModule } from 'ng-zorro-antd/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../auth.service';
 import { ProjectService } from '../project.service';
 
@@ -14,7 +15,7 @@ export interface ProjectOpenedPayload {
 @Component({
   selector: 'app-project-hub',
   standalone: true,
-  imports: [CommonModule, FormsModule, NzButtonModule, NzInputModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   templateUrl: './project-hub.html',
   styleUrl: './project-hub.css',
 })
@@ -23,6 +24,8 @@ export class ProjectHub {
   private readonly projectService = inject(ProjectService);
 
   @Output() projectOpened = new EventEmitter<ProjectOpenedPayload>();
+  /** プライベートリストを追加（親でタブを切り替え） */
+  @Output() addPrivateList = new EventEmitter<void>();
 
   createProjectName = '';
   createPassword = '';
@@ -46,6 +49,10 @@ export class ProjectHub {
     } catch (e) {
       alert(e instanceof Error ? e.message : '作成に失敗しました');
     }
+  }
+
+  onAddPrivateListClick(): void {
+    this.addPrivateList.emit();
   }
 
   async onJoinProject(): Promise<void> {

@@ -1,8 +1,11 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
-import { NzButtonModule } from 'ng-zorro-antd/button';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { ProjectMembers } from '../project-members/project-members';
 import { AuthService } from '../auth.service';
 import { ProjectService } from '../project.service';
@@ -10,7 +13,14 @@ import { ProjectService } from '../project.service';
 @Component({
   selector: 'app-project-settings',
   standalone: true,
-  imports: [CommonModule, NzButtonModule, ProjectMembers],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    ProjectMembers,
+  ],
   templateUrl: './project-settings.html',
   styleUrl: './project-settings.css',
 })
@@ -23,8 +33,11 @@ export class ProjectSettings implements OnInit {
 
   projectId = '';
   projectName = '';
+  projectNameEdit = '';
   loading = true;
   notFound = false;
+  renameSaving = false;
+  renameError: string | null = null;
 
   ngOnInit(): void {
     this.route.paramMap.subscribe((pm) => {
@@ -36,6 +49,7 @@ export class ProjectSettings implements OnInit {
   private async load(): Promise<void> {
     this.loading = true;
     this.notFound = false;
+    this.renameError = null;
     if (!this.projectId) {
       this.notFound = true;
       this.loading = false;
@@ -50,11 +64,39 @@ export class ProjectSettings implements OnInit {
     }
     const data = snap.data() as Record<string, unknown>;
     this.projectName = typeof data['name'] === 'string' ? data['name'] : '（無題）';
+    this.projectNameEdit = this.projectName;
     this.loading = false;
   }
 
   back(): void {
     void this.router.navigate(['/user-window']);
+  }
+
+  async saveProjectName(): Promise<void> {
+    const username = this.auth.username();
+    if (!username || !this.projectId) {
+      return;
+    }
+    const name = this.projectNameEdit.trim();
+    if (!name) {
+      this.renameError = 'プロジェクト名を入力してください';
+      return;
+    }
+    if (name === this.projectName) {
+      this.renameError = null;
+      return;
+    }
+    this.renameSaving = true;
+    this.renameError = null;
+    try {
+      await this.projectService.renameProject(this.projectId, name, username);
+      this.projectName = name;
+      this.projectNameEdit = name;
+    } catch (e) {
+      this.renameError = e instanceof Error ? e.message : '名前の更新に失敗しました';
+    } finally {
+      this.renameSaving = false;
+    }
   }
 
   async onLeaveProject(): Promise<void> {

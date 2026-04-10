@@ -3,8 +3,11 @@ export interface Task {
   title: string;
   label: string;
   done: boolean;
-  /** 1（最低）〜5（最高） */
   priority: number;
   deadline?: Date | null;
   description?: string;
+  /** プロジェクトタスクの担当ユーザー名（プライベートでは未使用） */
+  assignee?: string | null;
+  /** 手動並び替え用（小さいほど上） */
+  orderIndex?: number;
 }

@@ -1,24 +1,145 @@
+.task-toolbar-wrap {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.task-toolbar-with-add {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.add-task-plus {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  margin-top: 4px;
+  border-radius: 8px;
+  border: 1px solid #1890ff;
+  background: #e6f7ff;
+  color: #096dd9;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.add-task-plus:hover {
+  background: #bae7ff;
+}
+
+.filter-sort-stack {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.filter-bar,
 .sort-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  width: 100%;
 }
 
-.sort-label {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
+.filter-field {
+  min-width: 0;
+}
+
+.filter-select-multi {
+  min-width: 120px;
+  max-width: 220px;
+}
+
+.filter-due {
+  min-width: 140px;
+  max-width: 220px;
+}
+
+.filter-assignee {
+  min-width: 120px;
+  max-width: 200px;
 }
 
 .sort-select {
   min-width: 120px;
+  max-width: 200px;
 }
 
-app-task-list-item, app-task-form {
-    width: 100%;
+.sort-radio-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 0;
 }
 
-.done {
-    background-color: #adadad;
+.filter-label {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.sort-label {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.reset-filters-btn {
+  min-height: 36px;
+}
+
+.reorder-hint {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.reorder-hint-active {
+  color: rgba(0, 0, 0, 0.7);
+  background: rgba(25, 118, 210, 0.08);
+}
+
+.task-list-shell {
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.task-drop-list {
+  min-height: 0;
+}
+
+.task-list-row {
+  padding: 0 8px;
+}
+
+.task-list-drag-row {
+  border-bottom: 2px solid rgba(0, 0, 0, 0.14);
+  padding: 4px 0;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.task-list-drag-row:last-child {
+  border-bottom: none;
+}
+
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 4px;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14);
+}
+
+app-task-list-item {
+  width: 100%;
 }

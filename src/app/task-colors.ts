@@ -1,4 +1,3 @@
-/** カラーチャート（タスクの label に保存する HEX） */
 export const TASK_COLOR_CHART = [
   '#FFCDD2',
   '#F48FB1',

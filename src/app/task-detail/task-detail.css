@@ -48,10 +48,21 @@
   border-color: rgba(0, 0, 0, 0.45);
 }
 
+.full-width {
+  width: 100%;
+  max-width: 560px;
+}
+
 .date-input,
-.priority-field {
+.priority-field,
+.assignee-field {
   width: 100%;
   max-width: 280px;
+}
+
+.memo-field {
+  width: 100%;
+  max-width: 560px;
 }
 
 .memo {

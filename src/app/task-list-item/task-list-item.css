@@ -1,17 +1,81 @@
 .task-row {
   display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 44px;
+  border-radius: 4px;
+  overflow: hidden;
+  --label-color: #e0e0e0;
+}
+
+.label-strip {
+  flex: 0 0 6px;
+  width: 6px;
+  min-height: 100%;
+  align-self: stretch;
+}
+
+.drag-handle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.task-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  padding: 5px 5px;
-  border-radius: 4px;
+  padding: 8px 10px;
   flex-wrap: wrap;
+  cursor: pointer;
+  border-radius: 0 4px 4px 0;
+  transition: background-color 0.15s ease;
+}
+
+/* 未完了: ラベル色でタスクバー全体を淡く着色（色帯はそのまま濃い色） */
+.task-main:not(.done) {
+  background: color-mix(in srgb, var(--label-color) 34%, #fafafa);
+}
+
+.task-main:hover:not(.done) {
+  background: color-mix(in srgb, var(--label-color) 42%, #f5f5f5);
+}
+
+/* 完了: メインエリアのみグレー、左の色帯は従来どまま */
+.task-main.done {
+  background-color: #bdbdbd;
+}
+
+.task-main:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
 }
 
 .left {
   flex: 1 1 auto;
   min-width: 120px;
-  padding: 5px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -22,6 +86,26 @@
   flex: 0 0 auto;
 }
 
+.assignee-badge {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.75);
+  color: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-main.done .assignee-badge {
+  background: rgba(255, 255, 255, 0.45);
+}
+
 .priority-mark {
   flex: 0 0 auto;
   font-size: 12px;
@@ -29,9 +113,9 @@
   line-height: 1;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.8);
   color: rgba(0, 0, 0, 0.75);
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .task-title {
@@ -44,30 +128,43 @@
   flex: 0 1 auto;
   display: flex;
   flex-wrap: wrap;
-  padding: 5px;
   gap: 4px;
   align-items: center;
   justify-content: flex-end;
+}
+
+.deadline-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.65);
+  color: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.deadline-tag.deadline-overdue {
+  background: #fff2f0;
+  border-color: #ffccc7;
+  color: #a8071a;
 }
 
 .actions {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
   margin-left: auto;
 }
 
 .delete-btn {
-  padding: 0 4px;
   min-width: auto;
 }
 
 .task-title.done {
-  color: gray;
+  color: rgba(0, 0, 0, 0.45);
   text-decoration: line-through;
 }
 
-.task-row.overdue {
+.task-row.overdue .task-main:not(.done) {
   box-shadow: inset 4px 0 0 #f5222d;
 }

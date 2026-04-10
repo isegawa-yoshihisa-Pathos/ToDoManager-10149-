@@ -1,43 +1,105 @@
-<div class="sort-bar">
-  <span class="sort-label">並び替え</span>
-  <nz-select
-    class="sort-select"
-    nzPlaceHolder="第1条件"
-    nzAllowClear
-    [(ngModel)]="sortKey1"
-    name="sortKey1"
+<div class="task-toolbar-wrap task-toolbar-with-add">
+  <button
+    type="button"
+    class="add-task-plus"
+    (click)="openAddTaskDialog()"
+    aria-label="タスクを追加"
   >
-    <nz-option *ngFor="let o of sortFieldOptions" [nzValue]="o.value" [nzLabel]="o.label"></nz-option>
-  </nz-select>
-  <nz-select
-    class="sort-select"
-    nzPlaceHolder="第2条件"
-    nzAllowClear
-    [(ngModel)]="sortKey2"
-    name="sortKey2"
-  >
-    <nz-option *ngFor="let o of sortFieldOptions" [nzValue]="o.value" [nzLabel]="o.label"></nz-option>
-  </nz-select>
-  <nz-select
-    class="sort-select"
-    nzPlaceHolder="第3条件"
-    nzAllowClear
-    [(ngModel)]="sortKey3"
-    name="sortKey3"
-  >
-    <nz-option *ngFor="let o of sortFieldOptions" [nzValue]="o.value" [nzLabel]="o.label"></nz-option>
-  </nz-select>
-  <nz-radio-group [(ngModel)]="sortAscending" name="sortDir" nzSize="small">
-    <label nz-radio [nzValue]="true">昇順</label>
-    <label nz-radio [nzValue]="false">降順</label>
-  </nz-radio-group>
+    +
+  </button>
+  <div class="filter-sort-stack">
+    <div class="filter-bar">
+      <span class="filter-label">絞り込み</span>
+      <mat-form-field appearance="outline" class="filter-field filter-select-multi" subscriptSizing="dynamic">
+        <mat-label>色</mat-label>
+        <mat-select multiple [(ngModel)]="filterState.colors" name="filterColors">
+          <mat-option *ngFor="let c of colorOptionsForFilter" [value]="c">{{ c }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="filter-field filter-select-multi" subscriptSizing="dynamic">
+        <mat-label>優先度</mat-label>
+        <mat-select multiple [(ngModel)]="filterState.priorities" name="filterPriorities">
+          <mat-option *ngFor="let p of priorityFilterValues" [value]="p">優先度{{ p }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="filter-field filter-due" subscriptSizing="dynamic">
+        <mat-label>期日</mat-label>
+        <mat-select [(ngModel)]="filterState.dueDate" name="filterDue">
+          <mat-option *ngFor="let o of dueDateFilterOptions" [value]="o.value">{{ o.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      @if (isProjectScope) {
+        <mat-form-field appearance="outline" class="filter-field filter-assignee" subscriptSizing="dynamic">
+          <mat-label>担当者</mat-label>
+          <mat-select [(ngModel)]="filterState.assignee" name="filterAssignee">
+            <mat-option value="all">担当: すべて</mat-option>
+            <mat-option value="unassigned">未割り当て</mat-option>
+            <mat-option *ngFor="let m of projectMembers" [value]="m.username">{{ m.username }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      }
+      <button mat-stroked-button type="button" class="reset-filters-btn" (click)="resetFilters()">
+        条件をリセット
+      </button>
+    </div>
+
+    <div class="sort-bar">
+      <span class="sort-label">並び替え</span>
+      <mat-form-field appearance="outline" class="filter-field sort-select" subscriptSizing="dynamic">
+        <mat-label>第1条件</mat-label>
+        <mat-select [(ngModel)]="sortKey1" name="sortKey1">
+          <mat-option [value]="null">（なし）</mat-option>
+          <mat-option *ngFor="let o of sortFieldOptions" [value]="o.value">{{ o.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="filter-field sort-select" subscriptSizing="dynamic">
+        <mat-label>第2条件</mat-label>
+        <mat-select [(ngModel)]="sortKey2" name="sortKey2">
+          <mat-option [value]="null">（なし）</mat-option>
+          <mat-option *ngFor="let o of sortFieldOptions" [value]="o.value">{{ o.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="filter-field sort-select" subscriptSizing="dynamic">
+        <mat-label>第3条件</mat-label>
+        <mat-select [(ngModel)]="sortKey3" name="sortKey3">
+          <mat-option [value]="null">（なし）</mat-option>
+          <mat-option *ngFor="let o of sortFieldOptions" [value]="o.value">{{ o.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-radio-group [(ngModel)]="sortAscending" name="sortDir" class="sort-radio-group">
+        <mat-radio-button [value]="true">昇順</mat-radio-button>
+        <mat-radio-button [value]="false">降順</mat-radio-button>
+      </mat-radio-group>
+    </div>
+  </div>
 </div>
 
-<nz-list nzBordered>
-  <nz-list-item *ngFor="let task of displayTasks" class="{{task.done ? 'done' : ''}}">
-    <app-task-list-item [task]="task" [taskScope]="taskScope"></app-task-list-item>
-  </nz-list-item>
-  <nz-list-item>
-    <app-task-form (addTask)="addTask($event)"></app-task-form>
-  </nz-list-item>
-</nz-list>
+@if (canReorder) {
+  <p class="reorder-hint reorder-hint-active">左のドラッグハンドルを掴んで順序を変更できます。</p>
+} @else {
+  <p class="reorder-hint">
+    ドラッグで並び替えるには、絞り込み・並び替え条件をすべて初期状態（条件なし）にしてください。
+  </p>
+}
+
+<div class="task-list-shell mat-elevation-z1">
+  <div
+    cdkDropList
+    class="task-drop-list"
+    (cdkDropListDropped)="onTaskDrop($event)"
+    [cdkDropListDisabled]="!canReorder"
+  >
+    <div
+      *ngFor="let task of displayTasks; trackBy: trackByTaskId"
+      cdkDrag
+      class="task-list-drag-row"
+      [cdkDragDisabled]="!canReorder"
+    >
+      <app-task-list-item
+        [task]="task"
+        [taskScope]="taskScope"
+        [showDragHandle]="canReorder"
+      ></app-task-list-item>
+    </div>
+  </div>
+</div>

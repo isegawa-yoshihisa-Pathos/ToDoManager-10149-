@@ -1,3 +1,7 @@
+.app-toolbar {
+  margin-bottom: 0;
+}
+
 app-task-list {
   display: block;
   margin: 0 1rem;
@@ -130,9 +134,4 @@ app-task-list {
 
 .project-detail {
   margin: 0 1rem;
-}
-
-.project-heading {
-  margin: 12px 0 16px;
-  font-size: 17px;
 }

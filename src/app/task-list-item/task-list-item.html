@@ -1,36 +1,65 @@
 <div
   class="task-row"
   [class.overdue]="isOverdue(task)"
-  [class.done]="task.done"
-  [ngStyle]="labelBackground()"
+  [style.--label-color]="labelStripColor()"
+  (click)="onTaskRowClick($event)"
 >
-  <div class="left">
-    <label
-      nz-checkbox
-      name="done-{{ task.id ?? 'local' }}"
-      [ngModel]="task.done"
-      (ngModelChange)="onDoneChange($event)"
-      class="task-cb"
-      [attr.aria-label]="'完了: ' + task.title"
-    ></label>
-    <span class="priority-mark">{{ priorityLabel() }}</span>
-    <span class="task-title" [class.done]="task.done">{{ task.title }}</span>
-  </div>
-
-  <div class="center">
-    <nz-tag nzColor="error" *ngIf="isOverdue(task)">期日超過</nz-tag>
-    <nz-tag nzColor="default" *ngIf="task.deadline && !task.done">期日：{{ task.deadline | date: 'yyyy/MM/dd' }}</nz-tag>
-  </div>
-
-  <div class="actions">
-    <button nz-button nzType="default" type="button" (click)="openDetail($event)">詳細</button>
+  <div class="label-strip" [style.background-color]="labelStripColor()"></div>
+  @if (showDragHandle) {
     <button
-      nz-button
-      nzType="default"
-      nzDanger
       type="button"
-      class="delete-btn"
-      (click)="deleteTask($event)"
-      aria-label="削除">削除</button>
+      class="drag-handle"
+      cdkDragHandle
+      aria-label="ドラッグして並び替え"
+      (click)="$event.stopPropagation()"
+    >
+      <mat-icon aria-hidden="true">drag_indicator</mat-icon>
+    </button>
+  }
+  <div
+    class="task-main"
+    [class.done]="task.done"
+    (keydown)="onTaskMainKeydown($event)"
+    role="button"
+    tabindex="0"
+    [attr.aria-label]="'完了を切り替え: ' + task.title"
+  >
+    <div class="left">
+      <mat-checkbox
+        [ngModel]="task.done"
+        (ngModelChange)="onDoneChange($event)"
+        (click)="$event.stopPropagation()"
+        class="task-cb"
+        [attr.aria-label]="'完了: ' + task.title"
+      ></mat-checkbox>
+      <span class="priority-mark">{{ priorityLabel() }}</span>
+      @if (taskScope.kind === 'project' && task.assignee) {
+        <span class="assignee-badge" title="担当">{{ task.assignee }}</span>
+      }
+      <span class="task-title" [class.done]="task.done">{{ task.title }}</span>
+    </div>
+
+    <div class="center">
+      @if (task.deadline && !task.done) {
+        <span
+          class="deadline-tag"
+          [class.deadline-overdue]="isOverdue(task)"
+        >期日：{{ task.deadline | date: 'yyyy/MM/dd' }}</span>
+      }
+    </div>
+
+    <div class="actions" (click)="$event.stopPropagation()">
+      <button mat-stroked-button type="button" (click)="openDetail($event)">詳細</button>
+      <button
+        mat-flat-button
+        color="warn"
+        type="button"
+        class="delete-btn"
+        (click)="deleteTask($event)"
+        aria-label="削除"
+      >
+        削除
+      </button>
+    </div>
   </div>
 </div>

@@ -7,6 +7,8 @@ import {
   collection,
   getDocs,
   deleteDoc,
+  updateDoc,
+  writeBatch,
   serverTimestamp,
   Timestamp,
 } from '@angular/fire/firestore';
@@ -92,6 +94,37 @@ export class ProjectService {
       projectName,
       joinedAt: serverTimestamp(),
     });
+  }
+
+  /**
+   * 表示名を変更する。`projects/{id}.name` と全メンバーの `projectMemberships` の `projectName` を更新する。
+   */
+  async renameProject(
+    projectId: string,
+    newName: string,
+    requesterUsername: string,
+  ): Promise<void> {
+    const name = newName.trim();
+    if (!name) {
+      throw new Error('プロジェクト名を入力してください');
+    }
+    const memberRef = doc(this.firestore, 'projects', projectId, 'members', requesterUsername);
+    const memberSnap = await getDoc(memberRef);
+    if (!memberSnap.exists()) {
+      throw new Error('このプロジェクトのメンバーではありません');
+    }
+    const projectRef = doc(this.firestore, 'projects', projectId);
+    await updateDoc(projectRef, { name });
+
+    const membersCol = collection(this.firestore, 'projects', projectId, 'members');
+    const membersSnap = await getDocs(membersCol);
+    const batch = writeBatch(this.firestore);
+    for (const d of membersSnap.docs) {
+      const uname = d.id;
+      const mRef = doc(this.firestore, 'accounts', uname, 'projectMemberships', projectId);
+      batch.update(mRef, { projectName: name });
+    }
+    await batch.commit();
   }
 
   /** 自分だけメンバーと参加一覧から外す。プロジェクト本体・他メンバー・タスクは残る。 */

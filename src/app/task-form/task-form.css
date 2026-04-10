@@ -2,31 +2,33 @@
   width: 100%;
 }
 
-nz-input-group {
+.form-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 8px 12px;
   width: 100%;
+}
 
-  input {
-    flex: 1 1 200px;
-    min-width: 0;
-  }
+.title-field {
+  flex: 1 1 200px;
+  min-width: 160px;
+}
 
-  .priority-select {
-    flex: 0 0 130px;
-    min-width: 110px;
-  }
+.assignee-select {
+  flex: 0 0 180px;
+  min-width: 140px;
+}
 
-  nz-date-picker {
-    flex: 1 1 160px;
-    min-width: 0;
-  }
+.priority-select {
+  flex: 0 0 130px;
+  min-width: 110px;
+}
 
-  button {
-    flex: 0 0 auto;
-  }
+.date-field {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 280px;
 }
 
 .palette {

@@ -18,15 +18,9 @@
               "zone.js"
             ],
             "tsConfig": "tsconfig.app.json",
-            "assets": [
-              {
-                "glob": "**/*",
-                "input": "node_modules/@ant-design/icons-angular/src/inline-svg/",
-                "output": "/assets/"
-              }
-            ],
+            "assets": [],
             "styles": [
-              "./node_modules/ng-zorro-antd/ng-zorro-antd.min.css"
+              "src/styles.css"
             ]
           },
           "configurations": {
@@ -89,7 +83,6 @@
               }
             ],
             "styles": [
-              "./node_modules/ng-zorro-antd/ng-zorro-antd.min.css",
               "src/styles.css"
             ]
           }

@@ -1,43 +1,56 @@
 <div class="project-hub">
+  <div class="hub-actions">
+    <button mat-stroked-button color="primary" type="button" (click)="onAddPrivateListClick()">
+      プライベートを追加
+    </button>
+  </div>
   <div class="project-forms">
     <div class="form-card">
       <h3 class="card-title">プロジェクトを作成</h3>
-      <input
-        nz-input
-        class="field"
-        placeholder="プロジェクト名"
-        [(ngModel)]="createProjectName"
-        name="createProjectName"
-      />
-      <input
-        nz-input
-        class="field"
-        type="password"
-        placeholder="パスワード"
-        [(ngModel)]="createPassword"
-        name="createPassword"
-      />
-      <button nz-button nzType="primary" type="button" (click)="onCreateProject()">作成</button>
+      <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">
+        <mat-label>プロジェクト名</mat-label>
+        <input
+          matInput
+          placeholder="プロジェクト名"
+          [(ngModel)]="createProjectName"
+          name="createProjectName"
+        />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">
+        <mat-label>パスワード</mat-label>
+        <input
+          matInput
+          type="password"
+          placeholder="パスワード"
+          [(ngModel)]="createPassword"
+          name="createPassword"
+        />
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="button" (click)="onCreateProject()">作成</button>
     </div>
     <div class="form-card">
       <h3 class="card-title">プロジェクトに参加</h3>
       <p class="hint">プロジェクト名とパスワードが分かれば誰でも参加できます。</p>
-      <input
-        nz-input
-        class="field"
-        placeholder="プロジェクト名"
-        [(ngModel)]="joinProjectName"
-        name="joinProjectName"
-      />
-      <input
-        nz-input
-        class="field"
-        type="password"
-        placeholder="パスワード"
-        [(ngModel)]="joinPassword"
-        name="joinPassword"
-      />
-      <button nz-button nzType="primary" type="button" (click)="onJoinProject()">参加</button>
+      <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">
+        <mat-label>プロジェクト名</mat-label>
+        <input
+          matInput
+          placeholder="プロジェクト名"
+          [(ngModel)]="joinProjectName"
+          name="joinProjectName"
+        />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">
+        <mat-label>パスワード</mat-label>
+        <input
+          matInput
+          type="password"
+          placeholder="パスワード"
+          [(ngModel)]="joinPassword"
+          name="joinPassword"
+        />
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="button" (click)="onJoinProject()">参加</button>
     </div>
   </div>
 </div>

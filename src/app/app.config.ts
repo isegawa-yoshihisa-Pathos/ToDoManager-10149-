@@ -10,12 +10,9 @@ import { provideRouter } from '@angular/router';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
-import { provideNzIcons } from 'ng-zorro-antd/icon';
-import { DeleteOutline } from '@ant-design/icons-angular/icons';
+import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
 import { routes } from './app.routes';
 registerLocaleData(localeJa);
-
 
 const firebaseConfig = {
   apiKey: 'AIzaSyBsruStESBadPYdfJuZCwD9EVLtbpk0v6c',
@@ -35,8 +32,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideAnimationsAsync(),
     { provide: LOCALE_ID, useValue: 'ja' },
-    provideNzI18n(en_US),
-    provideNzIcons([DeleteOutline]),
+    provideNativeDateAdapter(),
+    { provide: MAT_DATE_LOCALE, useValue: 'ja-JP' },
     provideFirebaseApp(() => initializeApp(firebaseConfig)),
     provideFirestore(() => getFirestore()),
   ],

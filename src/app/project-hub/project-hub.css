@@ -2,6 +2,10 @@
   margin: 0 1rem;
 }
 
+.hub-actions {
+  margin-bottom: 1rem;
+}
+
 .project-forms {
   display: flex;
   flex-wrap: wrap;

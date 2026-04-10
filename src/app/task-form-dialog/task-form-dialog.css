@@ -1,0 +1,4 @@
+.dialog-body {
+  min-width: min(92vw, 520px);
+  padding-top: 8px;
+}

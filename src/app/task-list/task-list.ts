@@ -10,14 +10,33 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskListItem } from '../task-list-item/task-list-item';
-import { TaskForm } from '../task-form/task-form';
 import { Task } from '../../models/task';
 import { clampTaskPriority } from '../task-priority';
 import { sortTasks, TaskSortField } from '../task-sort';
-import { NzListModule } from 'ng-zorro-antd/list';
-import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzRadioModule } from 'ng-zorro-antd/radio';
-import { Firestore, collection, addDoc, Timestamp, collectionData } from '@angular/fire/firestore';
+import {
+  colorFilterOptions,
+  defaultTaskFilterState,
+  DueDateFilter,
+  filterTasks,
+  isFilterDefaultForReorder,
+  TaskFilterState,
+} from '../task-filter';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { TaskFormDialog } from '../task-form-dialog/task-form-dialog';
+import {
+  Firestore,
+  collection,
+  addDoc,
+  doc,
+  Timestamp,
+  collectionData,
+  writeBatch,
+} from '@angular/fire/firestore';
 import { map } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth.service';
@@ -29,10 +48,12 @@ import { TaskScope } from '../task-scope';
     CommonModule,
     FormsModule,
     TaskListItem,
-    TaskForm,
-    NzListModule,
-    NzSelectModule,
-    NzRadioModule,
+    DragDropModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatRadioModule,
+    MatDialogModule,
   ],
   templateUrl: './task-list.html',
   styleUrl: './task-list.css',
@@ -40,11 +61,16 @@ import { TaskScope } from '../task-scope';
 export class TaskList implements OnInit, OnDestroy, OnChanges {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(AuthService);
+  private readonly dialog = inject(MatDialog);
   private sub?: Subscription;
 
-  @Input() taskScope: TaskScope = { kind: 'private' };
+  @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
 
   tasks: Task[] = [];
+
+  /** プロジェクトのメンバー（担当者選択・フィルタ用） */
+  projectMembers: { username: string }[] = [];
+  private membersSub?: Subscription;
 
   /** 未選択は null（ソート条件から除外） */
   sortKey1: TaskSortField | null = null;
@@ -52,27 +78,115 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   sortKey3: TaskSortField | null = null;
   sortAscending = true;
 
+  filterState: TaskFilterState = defaultTaskFilterState();
+
   readonly sortFieldOptions: { value: TaskSortField; label: string }[] = [
     { value: 'color', label: '色' },
     { value: 'deadline', label: '期日' },
     { value: 'priority', label: '優先度' },
   ];
 
+  readonly dueDateFilterOptions: { value: DueDateFilter; label: string }[] = [
+    { value: 'all', label: '期日: すべて' },
+    { value: 'overdue', label: '期限切れ（未完了）' },
+    { value: 'today', label: '今日が期限' },
+    { value: 'within_7', label: '7日以内' },
+    { value: 'within_30', label: '30日以内' },
+    { value: 'beyond_30', label: '31日以降' },
+    { value: 'no_deadline', label: '期日なし' },
+  ];
+
+  readonly priorityFilterValues = [5, 4, 3, 2, 1] as const;
+
+  resetFilters(): void {
+    this.filterState = defaultTaskFilterState();
+  }
+
+  get isProjectScope(): boolean {
+    return this.taskScope.kind === 'project';
+  }
+
+  /** 色フィルタの候補（チャート＋タスクに含まれるその他の色） */
+  get colorOptionsForFilter(): string[] {
+    return colorFilterOptions(this.tasks);
+  }
+
   get displayTasks(): Task[] {
     const keys = [this.sortKey1, this.sortKey2, this.sortKey3].filter(
       (k): k is TaskSortField => k !== null,
     );
-    return sortTasks(this.tasks, keys, this.sortAscending);
+    const now = new Date();
+    const filtered = filterTasks(
+      this.tasks,
+      this.filterState,
+      now,
+      this.isProjectScope,
+    );
+    if (keys.length === 0) {
+      return [...filtered].sort((a, b) => {
+        const oa = a.orderIndex ?? Number.MAX_SAFE_INTEGER;
+        const ob = b.orderIndex ?? Number.MAX_SAFE_INTEGER;
+        if (oa !== ob) {
+          return oa - ob;
+        }
+        return (a.title ?? '').localeCompare(b.title ?? '');
+      });
+    }
+    return sortTasks(filtered, keys, this.sortAscending);
+  }
+
+  /** フィルタ初期・並び替え条件なしのときだけ手動ドラッグを有効にする */
+  get canReorder(): boolean {
+    return (
+      isFilterDefaultForReorder(this.filterState, this.isProjectScope) &&
+      this.sortKey1 === null &&
+      this.sortKey2 === null &&
+      this.sortKey3 === null
+    );
+  }
+
+  trackByTaskId(_index: number, task: Task): string {
+    return task.id ?? `idx-${_index}`;
   }
 
   ngOnInit() {
     this.subscribeTasks();
+    this.subscribeProjectMembers();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['taskScope'] && !changes['taskScope'].firstChange) {
       this.subscribeTasks();
+      this.subscribeProjectMembers();
+      if (!this.isProjectScope) {
+        this.filterState = { ...this.filterState, assignee: 'all' };
+      }
     }
+  }
+
+  private subscribeProjectMembers(): void {
+    this.membersSub?.unsubscribe();
+    this.membersSub = undefined;
+    this.projectMembers = [];
+    if (this.taskScope.kind !== 'project') {
+      return;
+    }
+    const pid = this.taskScope.projectId;
+    const ref = collection(this.firestore, 'projects', pid, 'members');
+    this.membersSub = collectionData(ref, { idField: 'id' })
+      .pipe(
+        map((rows) =>
+          (rows as Record<string, unknown>[]).map((data) => ({
+            username:
+              typeof data['username'] === 'string'
+                ? data['username']
+                : String(data['id'] ?? ''),
+          })),
+        ),
+      )
+      .subscribe((members) => {
+        this.projectMembers = members.filter((m) => m.username);
+      });
   }
 
   private subscribeTasks() {
@@ -85,10 +199,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       return;
     }
 
-    const ref =
-      this.taskScope.kind === 'private'
-        ? collection(this.firestore, 'accounts', username, 'tasks')
-        : collection(this.firestore, 'projects', this.taskScope.projectId, 'tasks');
+    const ref = this.tasksCollectionRef(username);
 
     this.sub = collectionData(ref, { idField: 'id' })
     .pipe(
@@ -111,7 +222,24 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
           const description =
             typeof data['description'] === 'string' ? data['description'] : '';
           const priority = clampTaskPriority(data['priority']);
-          return { ...data, done, label, deadline, description, priority } as Task;
+          const rawAssignee = data['assignee'];
+          const assignee =
+            typeof rawAssignee === 'string' && rawAssignee.trim() !== ''
+              ? rawAssignee.trim()
+              : null;
+          const rawOi = data['orderIndex'];
+          const orderIndex =
+            typeof rawOi === 'number' && !Number.isNaN(rawOi) ? rawOi : undefined;
+          return {
+            ...data,
+            done,
+            label,
+            deadline,
+            description,
+            priority,
+            assignee,
+            orderIndex,
+          } as Task;
         }),
       ),
     )
@@ -125,14 +253,113 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     if (!username) {
       return;
     }
-    const col =
-      this.taskScope.kind === 'private'
-        ? collection(this.firestore, 'accounts', username, 'tasks')
-        : collection(this.firestore, 'projects', this.taskScope.projectId, 'tasks');
-    addDoc(col, task);
+    const col = this.tasksCollectionRef(username);
+    const payload: Record<string, unknown> = {
+      title: task.title,
+      label: task.label,
+      done: task.done,
+      priority: task.priority,
+      deadline: task.deadline ? Timestamp.fromDate(new Date(task.deadline)) : null,
+      description: task.description ?? '',
+    };
+    if (this.taskScope.kind === 'project') {
+      const a = typeof task.assignee === 'string' ? task.assignee.trim() : '';
+      payload['assignee'] = a || null;
+    }
+    const maxOrder = this.tasks.reduce(
+      (m, t) => Math.max(m, t.orderIndex ?? -1),
+      -1,
+    );
+    payload['orderIndex'] = maxOrder < 0 ? 0 : maxOrder + 1000;
+    addDoc(col, payload);
+  }
+
+  onTaskDrop(event: CdkDragDrop<Task[]>): void {
+    if (!this.canReorder || event.previousIndex === event.currentIndex) {
+      return;
+    }
+    const ordered = [...this.displayTasks];
+    moveItemInArray(ordered, event.previousIndex, event.currentIndex);
+    void this.persistTaskOrder(ordered);
+  }
+
+  private tasksCollectionRef(username: string) {
+    if (this.taskScope.kind === 'project') {
+      return collection(this.firestore, 'projects', this.taskScope.projectId, 'tasks');
+    }
+    const pid = this.taskScope.privateListId;
+    return pid === 'default'
+      ? collection(this.firestore, 'accounts', username, 'tasks')
+      : collection(
+          this.firestore,
+          'accounts',
+          username,
+          'privateTaskLists',
+          pid,
+          'tasks',
+        );
+  }
+
+  private taskDocRef(taskId: string) {
+    const username = this.auth.username();
+    if (!username) {
+      return null;
+    }
+    if (this.taskScope.kind === 'project') {
+      return doc(this.firestore, 'projects', this.taskScope.projectId, 'tasks', taskId);
+    }
+    const pid = this.taskScope.privateListId;
+    return pid === 'default'
+      ? doc(this.firestore, 'accounts', username, 'tasks', taskId)
+      : doc(
+          this.firestore,
+          'accounts',
+          username,
+          'privateTaskLists',
+          pid,
+          'tasks',
+          taskId,
+        );
+  }
+
+  openAddTaskDialog(): void {
+    const ref = this.dialog.open(TaskFormDialog, {
+      width: 'min(96vw, 560px)',
+      autoFocus: 'first-tabbable',
+      data: {
+        taskScope: this.taskScope,
+        projectMembers: this.projectMembers,
+      },
+    });
+    ref.afterClosed().subscribe((task: Task | undefined) => {
+      if (task) {
+        this.addTask(task);
+      }
+    });
+  }
+
+  private async persistTaskOrder(ordered: Task[]): Promise<void> {
+    const batch = writeBatch(this.firestore);
+    ordered.forEach((task, index) => {
+      const id = task.id;
+      if (!id) {
+        return;
+      }
+      const ref = this.taskDocRef(id);
+      if (!ref) {
+        return;
+      }
+      batch.update(ref, { orderIndex: index * 1000 });
+    });
+    try {
+      await batch.commit();
+    } catch (e) {
+      console.error('persistTaskOrder failed:', e);
+    }
   }
 
   ngOnDestroy() {
     this.sub?.unsubscribe();
+    this.membersSub?.unsubscribe();
   }
 }

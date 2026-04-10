@@ -2,17 +2,19 @@
   <p class="state">読み込み中…</p>
 } @else if (notFound) {
   <p class="state">タスクが見つかりません。</p>
-  <button nz-button nzType="primary" (click)="back()">一覧へ戻る</button>
+  <button mat-flat-button color="primary" type="button" (click)="back()">一覧へ戻る</button>
 } @else {
   <div class="detail-header">
-    <button nz-button nzType="link" type="button" (click)="back()">← 一覧へ戻る</button>
+    <button mat-button type="button" (click)="back()">← 一覧へ戻る</button>
     <h1 class="detail-title">{{ pageTitle() }}</h1>
   </div>
 
   <div class="detail-body">
     <div class="field">
-      <label class="field-label">タスク名</label>
-      <input nz-input [(ngModel)]="editTitle" name="title" />
+      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+        <mat-label>タスク名</mat-label>
+        <input matInput [(ngModel)]="editTitle" name="title" />
+      </mat-form-field>
     </div>
 
     <div class="field">
@@ -30,28 +32,48 @@
       </div>
     </div>
 
+    @if (isProjectTaskScope()) {
+      <div class="field">
+        <mat-form-field appearance="outline" class="assignee-field" subscriptSizing="dynamic">
+          <mat-label>担当者</mat-label>
+          <mat-select [(ngModel)]="editAssignee" name="assignee">
+            <mat-option [value]="assigneeNone">未割り当て</mat-option>
+            <mat-option *ngFor="let m of projectMembers" [value]="m.username">{{ m.username }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    }
+
     <div class="field">
-      <label class="field-label">優先度</label>
-      <nz-select [(ngModel)]="editPriority" name="priority" class="priority-field">
-        <nz-option *ngFor="let p of priorityOptions" [nzValue]="p.value" [nzLabel]="p.label"></nz-option>
-      </nz-select>
+      <mat-form-field appearance="outline" class="priority-field" subscriptSizing="dynamic">
+        <mat-label>優先度</mat-label>
+        <mat-select [(ngModel)]="editPriority" name="priority">
+          <mat-option *ngFor="let p of priorityOptions" [value]="p.value">{{ p.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
     </div>
 
     <div class="field">
-      <label class="field-label">期日</label>
-      <nz-date-picker [(ngModel)]="editDeadline" name="deadline" class="date-input"></nz-date-picker>
+      <mat-form-field appearance="outline" class="date-input" subscriptSizing="dynamic">
+        <mat-label>期日</mat-label>
+        <input matInput [matDatepicker]="dp2" [(ngModel)]="editDeadline" name="deadline" />
+        <mat-datepicker-toggle matIconSuffix [for]="dp2"></mat-datepicker-toggle>
+        <mat-datepicker #dp2></mat-datepicker>
+      </mat-form-field>
     </div>
 
     <div class="field">
-      <label class="field-label">メモ</label>
-      <textarea
-        nz-input
-        class="memo"
-        [(ngModel)]="editDescription"
-        name="description"
-        rows="8"
-        placeholder="自由記述"
-      ></textarea>
+      <mat-form-field appearance="outline" class="memo-field" subscriptSizing="dynamic">
+        <mat-label>メモ</mat-label>
+        <textarea
+          matInput
+          class="memo"
+          [(ngModel)]="editDescription"
+          name="description"
+          rows="8"
+          placeholder="自由記述"
+        ></textarea>
+      </mat-form-field>
     </div>
 
     @if (saveError) {
@@ -59,8 +81,8 @@
     }
 
     <div class="actions">
-      <button nz-button (click)="back()">キャンセル</button>
-      <button nz-button nzType="primary" (click)="save()">保存</button>
+      <button mat-stroked-button type="button" (click)="back()">キャンセル</button>
+      <button mat-flat-button color="primary" type="button" (click)="save()">保存</button>
     </div>
   </div>
 }
