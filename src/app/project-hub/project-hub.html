@@ -7,13 +7,24 @@
   <div class="project-forms">
     <div class="form-card">
       <h3 class="card-title">プロジェクトを作成</h3>
+      <p class="hint">プロジェクトID は半角英数字のみ。作成後は変更できません。</p>
+      <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">
+        <mat-label>プロジェクトID</mat-label>
+        <input
+          matInput
+          placeholder="例: myproject01"
+          [(ngModel)]="createProjectId"
+          name="createProjectId"
+          autocomplete="off"
+        />
+      </mat-form-field>
       <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">
         <mat-label>プロジェクト名</mat-label>
         <input
           matInput
-          placeholder="プロジェクト名"
-          [(ngModel)]="createProjectName"
-          name="createProjectName"
+          placeholder="タブや設定に表示される名前"
+          [(ngModel)]="createProjectDisplayName"
+          name="createProjectDisplayName"
         />
       </mat-form-field>
       <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">
@@ -30,14 +41,15 @@
     </div>
     <div class="form-card">
       <h3 class="card-title">プロジェクトに参加</h3>
-      <p class="hint">プロジェクト名とパスワードが分かれば誰でも参加できます。</p>
+      <p class="hint">プロジェクトID とパスワードが分かれば参加できます。</p>
       <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">
-        <mat-label>プロジェクト名</mat-label>
+        <mat-label>プロジェクトID</mat-label>
         <input
           matInput
-          placeholder="プロジェクト名"
-          [(ngModel)]="joinProjectName"
-          name="joinProjectName"
+          placeholder="プロジェクトID"
+          [(ngModel)]="joinProjectId"
+          name="joinProjectId"
+          autocomplete="off"
         />
       </mat-form-field>
       <mat-form-field appearance="outline" class="field" subscriptSizing="dynamic">

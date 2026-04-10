@@ -20,5 +20,5 @@ export function clampTaskPriority(raw: unknown): number {
 
 export function priorityShortLabel(p: number): string {
   const v = clampTaskPriority(p);
-  return `優先度${v}`;
+  return `${v}`;
 }

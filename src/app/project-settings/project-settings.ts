@@ -73,8 +73,8 @@ export class ProjectSettings implements OnInit {
   }
 
   async saveProjectName(): Promise<void> {
-    const username = this.auth.username();
-    if (!username || !this.projectId) {
+    const userId = this.auth.userId();
+    if (!userId || !this.projectId) {
       return;
     }
     const name = this.projectNameEdit.trim();
@@ -89,7 +89,7 @@ export class ProjectSettings implements OnInit {
     this.renameSaving = true;
     this.renameError = null;
     try {
-      await this.projectService.renameProject(this.projectId, name, username);
+      await this.projectService.renameProject(this.projectId, name, userId);
       this.projectName = name;
       this.projectNameEdit = name;
     } catch (e) {
@@ -100,8 +100,8 @@ export class ProjectSettings implements OnInit {
   }
 
   async onLeaveProject(): Promise<void> {
-    const username = this.auth.username();
-    if (!username || !this.projectId) {
+    const userId = this.auth.userId();
+    if (!userId || !this.projectId) {
       return;
     }
     if (
@@ -112,7 +112,7 @@ export class ProjectSettings implements OnInit {
       return;
     }
     try {
-      await this.projectService.leaveProject(this.projectId, username);
+      await this.projectService.leaveProject(this.projectId, userId);
       void this.router.navigate(['/user-window']);
     } catch (e) {
       alert(e instanceof Error ? e.message : '脱退に失敗しました');
@@ -120,8 +120,8 @@ export class ProjectSettings implements OnInit {
   }
 
   async onDeleteProject(): Promise<void> {
-    const username = this.auth.username();
-    if (!username || !this.projectId) {
+    const userId = this.auth.userId();
+    if (!userId || !this.projectId) {
       return;
     }
     if (
@@ -132,7 +132,7 @@ export class ProjectSettings implements OnInit {
       return;
     }
     try {
-      await this.projectService.deleteProject(this.projectId, username);
+      await this.projectService.deleteProject(this.projectId, userId);
       void this.router.navigate(['/user-window']);
     } catch (e) {
       alert(e instanceof Error ? e.message : '削除に失敗しました');

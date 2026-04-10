@@ -12,7 +12,7 @@ import { TaskScope } from '../task-scope';
 
 export interface TaskFormDialogData {
   taskScope: TaskScope;
-  projectMembers: { username: string }[];
+  projectMembers: { userId: string; displayName: string }[];
 }
 
 @Component({

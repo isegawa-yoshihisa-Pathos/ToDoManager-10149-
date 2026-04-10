@@ -27,23 +27,26 @@ export class ProjectHub {
   /** プライベートリストを追加（親でタブを切り替え） */
   @Output() addPrivateList = new EventEmitter<void>();
 
-  createProjectName = '';
+  createProjectId = '';
+  createProjectDisplayName = '';
   createPassword = '';
-  joinProjectName = '';
+  joinProjectId = '';
   joinPassword = '';
 
   async onCreateProject(): Promise<void> {
-    const username = this.auth.username();
-    if (!username) {
+    const userId = this.auth.userId();
+    if (!userId) {
       return;
     }
     try {
       const row = await this.projectService.createProject(
-        this.createProjectName,
+        this.createProjectId,
+        this.createProjectDisplayName,
         this.createPassword,
-        username,
+        userId,
       );
-      this.createProjectName = '';
+      this.createProjectId = '';
+      this.createProjectDisplayName = '';
       this.createPassword = '';
       this.projectOpened.emit({ projectId: row.projectId, projectName: row.projectName });
     } catch (e) {
@@ -56,17 +59,17 @@ export class ProjectHub {
   }
 
   async onJoinProject(): Promise<void> {
-    const username = this.auth.username();
-    if (!username) {
+    const userId = this.auth.userId();
+    if (!userId) {
       return;
     }
     try {
       const row = await this.projectService.joinProject(
-        this.joinProjectName,
+        this.joinProjectId,
         this.joinPassword,
-        username,
+        userId,
       );
-      this.joinProjectName = '';
+      this.joinProjectId = '';
       this.joinPassword = '';
       this.projectOpened.emit({ projectId: row.projectId, projectName: row.projectName });
     } catch (e) {

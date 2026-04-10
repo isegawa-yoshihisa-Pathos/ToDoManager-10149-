@@ -13,6 +13,10 @@ export interface ProjectSessionState {
   privateListsCache: { id: string; title: string }[];
   /** 既定「プライベート」タブの表示名キャッシュ */
   defaultPrivateListLabel: string;
+  /** タブ並び（Firestore と同期するまでのキャッシュ） */
+  tabOrderCache: string[];
+  /** タブキー → 背景色 (#RRGGBB) */
+  tabColorsCache: Record<string, string>;
 }
 
 const defaultState = (): ProjectSessionState => ({
@@ -22,6 +26,8 @@ const defaultState = (): ProjectSessionState => ({
   activePrivateListId: 'default',
   privateListsCache: [],
   defaultPrivateListLabel: 'プライベート',
+  tabOrderCache: [],
+  tabColorsCache: {},
 });
 
 @Injectable({ providedIn: 'root' })
@@ -64,6 +70,19 @@ export class ProjectSessionService {
           parsed.defaultPrivateListLabel.trim() !== ''
             ? parsed.defaultPrivateListLabel
             : 'プライベート',
+        tabOrderCache: Array.isArray(parsed.tabOrderCache)
+          ? parsed.tabOrderCache.filter((x): x is string => typeof x === 'string')
+          : [],
+        tabColorsCache:
+          parsed.tabColorsCache &&
+          typeof parsed.tabColorsCache === 'object' &&
+          !Array.isArray(parsed.tabColorsCache)
+            ? Object.fromEntries(
+                Object.entries(parsed.tabColorsCache as Record<string, unknown>).filter(
+                  ([k, v]) => typeof k === 'string' && typeof v === 'string',
+                ) as [string, string][],
+              )
+            : {},
       };
     } catch {
       return defaultState();

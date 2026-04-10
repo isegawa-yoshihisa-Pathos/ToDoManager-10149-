@@ -8,10 +8,11 @@
     <button mat-flat-button color="primary" type="button" (click)="back()">一覧へ戻る</button>
   } @else {
     <h1 class="title">{{ projectName }}</h1>
+    <p class="project-id-line">プロジェクトID：<code>{{ projectId }}</code></p>
 
     <div class="rename-block">
       <h2 class="section-title">プロジェクト名の変更</h2>
-      <p class="lead">タブに表示される名前を更新できます。</p>
+      <p class="lead">タブ表示・この画面の見出しを更新できます。プロジェクトID は変更できません。</p>
       <div class="rename-row">
         <mat-form-field appearance="outline" class="rename-field" subscriptSizing="dynamic">
           <mat-label>新しい名前</mat-label>
@@ -36,8 +37,6 @@
         <p class="rename-error">{{ renameError }}</p>
       }
     </div>
-
-    <p class="lead section-gap">メンバー一覧は下記です。脱退・削除は一覧の下から行えます。</p>
 
     <h2 class="section-title">メンバー</h2>
     <app-project-members [projectId]="projectId"></app-project-members>

@@ -14,12 +14,13 @@ export class SignUp {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
 
-  username: string = '';
-  password: string = '';
+  userId = '';
+  displayName = '';
+  password = '';
 
   async signUp() {
     try {
-      await this.auth.signUp(this.username, this.password);
+      await this.auth.signUp(this.userId, this.displayName, this.password);
       await this.router.navigate(['/login']);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'アカウント作成に失敗しました');

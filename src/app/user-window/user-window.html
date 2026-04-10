@@ -1,130 +1,149 @@
 <mat-toolbar color="primary" class="app-toolbar">
-  <span>AngularTodo</span>
+  <h1>AngularTodo</h1>
+  <div class="user-window">
+    <button
+      matButton="tonal"
+      type="button"
+      class="account-menu-trigger"
+      [matMenuTriggerFor]="accountMenu"
+    >
+      {{ auth.displayName() ?? auth.userId() }}
+    </button>
+    <mat-menu #accountMenu="matMenu">
+      <button mat-menu-item type="button" (click)="changeDisplayName()">ユーザー名を変更</button>
+      <button mat-menu-item type="button" (click)="signOut()">サインアウト</button>
+    </mat-menu>
+  </div>
 </mat-toolbar>
-<div class="user-window">
-  <div class="username">ユーザー名：{{ auth.username() }}</div>
-  <button mat-flat-button color="primary" type="button" (click)="signOut()">Sign out</button>
-</div>
 
 <nav class="primary-nav" aria-label="表示の切り替え">
-  <div class="nav-cluster nav-cluster-start">
-    <span class="nav-tab-project-wrap">
-      <button
-        type="button"
-        class="nav-tab nav-tab-project"
-        [class.active]="isDefaultPrivateTabActive()"
-        (click)="selectDefaultPrivateTab()"
-      >
-        {{ defaultPrivateLabel() }}
-      </button>
-      <button
-        type="button"
-        class="nav-tab-menu"
-        [class.active]="isDefaultPrivateTabActive()"
-        aria-label="既定のプライベートリストの名称を変更"
-        [matMenuTriggerFor]="defaultPrivateMenu"
-        (click)="$event.stopPropagation(); $event.preventDefault()"
-      >
-        <span class="vertical-dots" aria-hidden="true">
-          <span class="vdot"></span>
-          <span class="vdot"></span>
-          <span class="vdot"></span>
-        </span>
-      </button>
+  <div class="nav-cluster nav-cluster-start nav-tabs-host">
+    <mat-tab-nav-panel #mainNavPanel class="main-tab-nav-panel">
+      <div class="nav-tabs-scroll-wrap">
+        <nav
+          mat-tab-nav-bar
+          [tabPanel]="mainNavPanel"
+          class="sortable-mat-tab-bar"
+          mat-stretch-tabs="false"
+          cdkDropList
+          cdkDropListOrientation="horizontal"
+          (cdkDropListDropped)="onNavTabDrop($event)"
+        >
+        @for (entry of navEntries(); track entry.key) {
+          <a
+            mat-tab-link
+            cdkDrag
+            [active]="isEntryActive(entry)"
+            (click)="onNavEntryClick(entry, $event)"
+            [style.background-color]="tabColorsRaw()[entry.key] || null"
+            class="user-window-mat-tab-link"
+          >
+            <span
+              cdkDragHandle
+              class="mat-tab-sort-handle"
+              (click)="$event.stopPropagation(); $event.preventDefault()"
+              aria-label="ドラッグして並び替え"
+              tabindex="-1"
+            ></span>
+            <span class="mat-tab-inner-label" [attr.title]="navTabTitleAttr(entry)">{{
+              navTabDisplayLabel(entry)
+            }}</span>
+            @switch (entry.kind) {
+              @case ('privateDefault') {
+                <button
+                  type="button"
+                  matIconButton
+                  [matMenuTriggerFor]="defaultPrivateMenu"
+                  (click)="$event.stopPropagation(); $event.preventDefault()"
+                  aria-label="メニュー"
+                >
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              }
+              @case ('privateList') {
+                <button
+                  type="button"
+                  matIconButton
+                  [matMenuTriggerFor]="extraPrivateSharedMenu"
+                  [matMenuTriggerData]="{
+                    pl: { id: entry.id, title: entry.title },
+                    tabKey: entry.key,
+                  }"
+                  (click)="$event.stopPropagation(); $event.preventDefault()"
+                  aria-label="メニュー"
+                >
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              }
+              @case ('project') {
+                <button
+                  type="button"
+                  matIconButton
+                  [matMenuTriggerFor]="projectTabMenu"
+                  [matMenuTriggerData]="{ entry: entry }"
+                  (click)="$event.stopPropagation(); $event.preventDefault()"
+                  aria-label="メニュー"
+                >
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              }
+            }
+          </a>
+        }
+        </nav>
+      </div>
+
       <mat-menu #defaultPrivateMenu="matMenu">
-        <button mat-menu-item type="button" (click)="promptRenameDefaultPrivate()">
-          名称を変更
+        <button mat-menu-item type="button" (click)="promptRenameDefaultPrivate()">名称を変更</button>
+        <button mat-menu-item type="button" (click)="changeTabColor(tabKeyDefault)">
+          タブの色を設定…
         </button>
       </mat-menu>
-    </span>
-    @for (pl of privateLists(); track pl.id) {
-      <span class="nav-tab-project-wrap">
-        <button
-          type="button"
-          class="nav-tab nav-tab-project"
-          [class.active]="isPrivateListTabActive(pl.id)"
-          (click)="selectPrivateList(pl.id)"
-        >
-          {{ pl.title }}
-        </button>
-        <button
-          type="button"
-          class="nav-tab-menu"
-          [class.active]="isPrivateListTabActive(pl.id)"
-          aria-label="プライベートリストの名称変更・削除"
-          [matMenuTriggerFor]="extraPrivateSharedMenu"
-          [matMenuTriggerData]="{ pl: pl }"
-          (click)="$event.stopPropagation(); $event.preventDefault()"
-        >
-          <span class="vertical-dots" aria-hidden="true">
-            <span class="vdot"></span>
-            <span class="vdot"></span>
-            <span class="vdot"></span>
-          </span>
-        </button>
-      </span>
-    }
-    <mat-menu #extraPrivateSharedMenu="matMenu">
-      <ng-template matMenuContent let-pl="pl">
-        <button mat-menu-item type="button" (click)="renameExtraPrivate(pl)">名称を変更</button>
-        <button mat-menu-item type="button" (click)="deleteExtraPrivate(pl)">削除</button>
-      </ng-template>
-    </mat-menu>
-    @for (p of memberships; track p.projectId) {
-      <span class="nav-tab-project-wrap">
-        <button
-          type="button"
-          class="nav-tab nav-tab-project"
-          [class.active]="isProjectTabActive(p.projectId)"
-          (click)="openProject(p)"
-        >
-          {{ p.projectName }}
-        </button>
-        <button
-          type="button"
-          class="nav-tab-menu"
-          [class.active]="isProjectTabActive(p.projectId)"
-          aria-label="プロジェクト名の変更・メンバー・脱退・削除"
-          (click)="openProjectSettings($event, p)"
-        >
-          <span class="vertical-dots" aria-hidden="true">
-            <span class="vdot"></span>
-            <span class="vdot"></span>
-            <span class="vdot"></span>
-          </span>
-        </button>
-      </span>
-    }
-  </div>
-  <div class="nav-cluster nav-cluster-end">
-    <button
-      type="button"
-      class="nav-tab"
-      [class.active]="isProjectHubActive()"
-      (click)="selectProjectHub()"
-    >
-      タスクリストの編集
-    </button>
+      <mat-menu #extraPrivateSharedMenu="matMenu">
+        <ng-template matMenuContent let-pl="pl" let-tabKey="tabKey">
+          <button mat-menu-item type="button" (click)="renameExtraPrivate(pl)">名称を変更</button>
+          <button mat-menu-item type="button" (click)="deleteExtraPrivate(pl)">削除</button>
+          <button mat-menu-item type="button" (click)="changeTabColor(tabKey)">タブの色を設定…</button>
+        </ng-template>
+      </mat-menu>
+      <mat-menu #projectTabMenu="matMenu">
+        <ng-template matMenuContent let-entry="entry">
+          <button mat-menu-item type="button" (click)="openProjectSettingsFromMenu(entry)">
+            プロジェクト設定
+          </button>
+          <button mat-menu-item type="button" (click)="changeTabColor(entry.key)">タブの色を設定…</button>
+        </ng-template>
+      </mat-menu>
+
+      <div class="tab-nav-below-content">
+        @if (mainTab() === 'private') {
+          <section class="section">
+            <app-task-list
+              [taskScope]="privateTaskScope()"
+              [projectHubNavActive]="isProjectHubActive()"
+              (openProjectHub)="selectProjectHub()"
+            ></app-task-list>
+          </section>
+        }
+        @if (mainTab() === 'project') {
+          <section class="section project-section">
+            @if (!activeProject()) {
+              <app-project-hub
+                (projectOpened)="onProjectOpened($event)"
+                (addPrivateList)="onAddPrivateList()"
+              ></app-project-hub>
+            } @else {
+              <div class="project-detail">
+                <app-task-list
+                  [taskScope]="projectTaskScope()"
+                  [projectHubNavActive]="isProjectHubActive()"
+                  (openProjectHub)="selectProjectHub()"
+                ></app-task-list>
+              </div>
+            }
+          </section>
+        }
+      </div>
+    </mat-tab-nav-panel>
   </div>
 </nav>
-
-@if (mainTab() === 'private') {
-  <section class="section">
-    <app-task-list [taskScope]="privateTaskScope()"></app-task-list>
-  </section>
-}
-
-@if (mainTab() === 'project') {
-  <section class="section project-section">
-    @if (!activeProject()) {
-      <app-project-hub
-        (projectOpened)="onProjectOpened($event)"
-        (addPrivateList)="onAddPrivateList()"
-      ></app-project-hub>
-    } @else {
-      <div class="project-detail">
-        <app-task-list [taskScope]="projectTaskScope()"></app-task-list>
-      </div>
-    }
-  </section>
-}

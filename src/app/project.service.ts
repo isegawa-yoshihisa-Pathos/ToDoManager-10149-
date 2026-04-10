@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from '@angular/fire/firestore';
+import { isValidProjectIdChars } from './nav-tab-order';
 
 export interface ProjectMembershipRow {
   projectId: string;
@@ -23,73 +24,101 @@ export interface ProjectMembershipRow {
 export class ProjectService {
   private readonly firestore = inject(Firestore);
 
-  /** プロジェクト名とパスワードから一意のドキュメント ID を生成 */
-  async projectIdFromCredentials(projectName: string, password: string): Promise<string> {
-    const text = `${projectName.trim()}\n${password}`;
-    const enc = new TextEncoder().encode(text);
-    const buf = await crypto.subtle.digest('SHA-256', enc);
-    return Array.from(new Uint8Array(buf))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+  private assertProjectId(projectId: string): string {
+    const id = projectId.trim();
+    if (!id) {
+      throw new Error('プロジェクトIDを入力してください');
+    }
+    if (!isValidProjectIdChars(id)) {
+      throw new Error('プロジェクトIDは半角英数字のみ使用できます');
+    }
+    if (id.length < 2 || id.length > 64) {
+      throw new Error('プロジェクトIDは2〜64文字の半角英数字にしてください');
+    }
+    return id;
   }
 
-  async createProject(projectName: string, password: string, username: string): Promise<ProjectMembershipRow> {
-    const name = projectName.trim();
-    if (!name || !password) {
-      throw new Error('プロジェクト名とパスワードを入力してください');
+  async createProject(
+    projectIdRaw: string,
+    projectDisplayName: string,
+    password: string,
+    userId: string,
+  ): Promise<ProjectMembershipRow> {
+    const projectId = this.assertProjectId(projectIdRaw);
+    const name = projectDisplayName.trim();
+    if (!name) {
+      throw new Error('プロジェクト名を入力してください');
     }
-    const projectId = await this.projectIdFromCredentials(name, password);
+    if (!password) {
+      throw new Error('パスワードを入力してください');
+    }
     const projectRef = doc(this.firestore, 'projects', projectId);
     const existing = await getDoc(projectRef);
     if (existing.exists()) {
-      throw new Error('同じプロジェクト名とパスワードの組み合わせは既に使われています。参加から入ってください。');
+      throw new Error('このプロジェクトIDは既に使われています。別のIDを指定するか、参加から入ってください。');
     }
     await setDoc(projectRef, {
       name,
       password,
-      createdBy: username,
+      createdBy: userId,
       createdAt: serverTimestamp(),
     });
-    await this.addMember(projectId, username);
-    await this.saveMembership(username, projectId, name);
+    await this.addMember(projectId, userId);
+    await this.saveMembership(userId, projectId, name);
     return { projectId, projectName: name, joinedAt: null };
   }
 
-  async joinProject(projectName: string, password: string, username: string): Promise<ProjectMembershipRow> {
-    const name = projectName.trim();
-    if (!name || !password) {
-      throw new Error('プロジェクト名とパスワードを入力してください');
+  async joinProject(
+    projectIdRaw: string,
+    password: string,
+    userId: string,
+  ): Promise<ProjectMembershipRow> {
+    const projectId = this.assertProjectId(projectIdRaw);
+    if (!password) {
+      throw new Error('パスワードを入力してください');
     }
-    const projectId = await this.projectIdFromCredentials(name, password);
     const projectRef = doc(this.firestore, 'projects', projectId);
     const snap = await getDoc(projectRef);
     if (!snap.exists()) {
-      throw new Error('プロジェクトが見つかりません。名前とパスワードを確認してください。');
+      throw new Error('プロジェクトが見つかりません。プロジェクトIDとパスワードを確認してください。');
     }
     const data = snap.data() as { password?: string; name?: string };
     if (data['password'] !== password) {
       throw new Error('パスワードが正しくありません');
     }
-    const displayName = typeof data['name'] === 'string' ? data['name'] : name;
-    await this.addMember(projectId, username);
-    await this.saveMembership(username, projectId, displayName);
+    const displayName = typeof data['name'] === 'string' ? data['name'] : projectId;
+    await this.addMember(projectId, userId);
+    await this.saveMembership(userId, projectId, displayName);
     return { projectId, projectName: displayName, joinedAt: null };
   }
 
-  private async addMember(projectId: string, username: string): Promise<void> {
-    const memberRef = doc(this.firestore, 'projects', projectId, 'members', username);
+  private async addMember(projectId: string, userId: string): Promise<void> {
+    const accSnap = await getDoc(doc(this.firestore, 'accounts', userId));
+    let displayName = userId;
+    if (accSnap.exists()) {
+      const d = accSnap.data() as { displayName?: string; username?: string };
+      displayName =
+        typeof d['displayName'] === 'string' && d['displayName'].trim() !== ''
+          ? d['displayName'].trim()
+          : typeof d['username'] === 'string' && d['username'].trim() !== ''
+            ? d['username'].trim()
+            : userId;
+    }
+    const memberRef = doc(this.firestore, 'projects', projectId, 'members', userId);
     await setDoc(memberRef, {
-      username,
+      userId,
+      displayName,
+      username: userId,
       joinedAt: serverTimestamp(),
     });
   }
 
   private async saveMembership(
-    username: string,
+    userId: string,
     projectId: string,
     projectName: string,
   ): Promise<void> {
-    const mRef = doc(this.firestore, 'accounts', username, 'projectMemberships', projectId);
+    const mRef = doc(this.firestore, 'accounts', userId, 'projectMemberships', projectId);
     await setDoc(mRef, {
       projectName,
       joinedAt: serverTimestamp(),

@@ -1,0 +1,27 @@
+<h2 mat-dialog-title>タブの色</h2>
+<mat-dialog-content class="tab-color-dialog-body">
+  <p class="tab-color-hint">背景に使う色を選んでください。</p>
+  <div class="palette" role="listbox" aria-label="タブの背景色">
+    <button
+      type="button"
+      class="swatch swatch-none"
+      [class.selected]="isClearSelected()"
+      [attr.aria-pressed]="isClearSelected()"
+      aria-label="無色（デフォルト）"
+      (click)="pick('#ffffff')"
+    ></button>
+    <button
+      type="button"
+      *ngFor="let c of chart"
+      class="swatch"
+      [style.backgroundColor]="c"
+      [class.selected]="isChartColorSelected(c)"
+      [attr.aria-pressed]="isChartColorSelected(c)"
+      [attr.aria-label]="'色 ' + c"
+      (click)="pick(c)"
+    ></button>
+  </div>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close type="button">キャンセル</button>
+</mat-dialog-actions>

@@ -11,6 +11,11 @@ import { deleteDoc, doc, Firestore, updateDoc } from '@angular/fire/firestore';
 import { AuthService } from '../auth.service';
 import { TaskScope, taskDetailScopeParam } from '../task-scope';
 import { priorityShortLabel } from '../task-priority';
+import {
+  displayEllipsis,
+  isDisplayTruncated,
+  TASK_TITLE_DISPLAY_MAX_CHARS,
+} from '../display-ellipsis';
 
 @Component({
   selector: 'app-task-list-item',
@@ -40,10 +45,32 @@ export class TaskListItem implements OnInit {
     deadline: new Date(),
   };
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
+  /** プロジェクト時、担当表示名の解決用 */
+  @Input() projectMembers: { userId: string; displayName: string }[] = [];
   @Input() showDragHandle = false;
 
   priorityLabel(): string {
     return priorityShortLabel(this.task.priority);
+  }
+
+  taskTitleDisplay(): string {
+    return displayEllipsis(this.task.title, TASK_TITLE_DISPLAY_MAX_CHARS);
+  }
+
+  /** 省略時のみホバーで全文 */
+  taskTitleTooltip(): string | null {
+    const t = this.task.title ?? '';
+    return isDisplayTruncated(t, TASK_TITLE_DISPLAY_MAX_CHARS) ? t : null;
+  }
+
+  /** タスクの assignee はユーザーID。一覧ではユーザー名を表示 */
+  assigneeDisplay(): string {
+    const a = this.task.assignee?.trim();
+    if (!a) {
+      return '';
+    }
+    const m = this.projectMembers.find((x) => x.userId === a);
+    return m?.displayName ?? a;
   }
 
   /** 左の色帯・行の背景トーンに使用 */
@@ -55,8 +82,8 @@ export class TaskListItem implements OnInit {
   onDoneChange(done: boolean): void {
     this.task.done = done;
     const id = this.task.id;
-    const username = this.auth.username();
-    if (!id || !username) {
+    const userId = this.auth.userId();
+    if (!id || !userId) {
       return;
     }
     const ref = this.taskDocRef(id);
@@ -110,8 +137,8 @@ export class TaskListItem implements OnInit {
     ev.preventDefault();
     ev.stopPropagation();
     const id = this.task.id;
-    const username = this.auth.username();
-    if (!id || !username) {
+    const userId = this.auth.userId();
+    if (!id || !userId) {
       return;
     }
     if (!confirm('このタスクを削除しますか？')) {
@@ -125,8 +152,8 @@ export class TaskListItem implements OnInit {
   }
 
   private taskDocRef(taskId: string) {
-    const username = this.auth.username();
-    if (!username) {
+    const userId = this.auth.userId();
+    if (!userId) {
       return null;
     }
     if (this.taskScope.kind === 'project') {
@@ -134,11 +161,11 @@ export class TaskListItem implements OnInit {
     }
     const pid = this.taskScope.privateListId;
     return pid === 'default'
-      ? doc(this.firestore, 'accounts', username, 'tasks', taskId)
+      ? doc(this.firestore, 'accounts', userId, 'tasks', taskId)
       : doc(
           this.firestore,
           'accounts',
-          username,
+          userId,
           'privateTaskLists',
           pid,
           'tasks',

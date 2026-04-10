@@ -10,16 +10,24 @@
   gap: 12px;
 }
 
+.task-toolbar-primary-col {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
 .add-task-plus {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 150px;
+  height: 40px;
   margin-top: 4px;
   border-radius: 8px;
   border: 1px solid #1890ff;
   background: #e6f7ff;
   color: #096dd9;
-  font-size: 24px;
+  font-size: 18px;
   line-height: 1;
   font-weight: 600;
   cursor: pointer;
@@ -28,6 +36,32 @@
 
 .add-task-plus:hover {
   background: #bae7ff;
+}
+
+.task-list-hub-btn {
+  width: 150px;
+  box-sizing: border-box;
+  margin-top: 0;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  line-height: 1.2;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 600;
+}
+
+.task-list-hub-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.task-list-hub-btn.active {
+  border-color: #1890ff;
+  background: #e6f7ff;
+  color: #096dd9;
 }
 
 .filter-sort-stack {
@@ -51,23 +85,58 @@
 }
 
 .filter-select-multi {
-  min-width: 120px;
-  max-width: 220px;
+  width: 120px;
+}
+
+.filter-colors-field .filter-color-trigger {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+}
+
+.filter-color-trigger-placeholder {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.filter-color-chip {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+::ng-deep .filter-colors-panel .filter-color-option .mdc-list-item__primary-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.filter-color-swatch {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 }
 
 .filter-due {
-  min-width: 140px;
-  max-width: 220px;
+  width: 200px;
 }
 
 .filter-assignee {
-  min-width: 120px;
-  max-width: 200px;
+  width: 200px;
 }
 
 .sort-select {
-  min-width: 120px;
-  max-width: 200px;
+  width: 120px;
 }
 
 .sort-radio-group {

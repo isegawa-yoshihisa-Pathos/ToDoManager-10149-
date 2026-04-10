@@ -34,9 +34,13 @@
       ></mat-checkbox>
       <span class="priority-mark">{{ priorityLabel() }}</span>
       @if (taskScope.kind === 'project' && task.assignee) {
-        <span class="assignee-badge" title="担当">{{ task.assignee }}</span>
+        <span class="assignee-badge" title="担当">{{ assigneeDisplay() }}</span>
       }
-      <span class="task-title" [class.done]="task.done">{{ task.title }}</span>
+      <span
+        class="task-title"
+        [class.done]="task.done"
+        [attr.title]="taskTitleTooltip()"
+      >{{ taskTitleDisplay() }}</span>
     </div>
 
     <div class="center">

@@ -3,8 +3,10 @@ import { CommonModule } from '@angular/common';
 import { Firestore, collection, collectionData, Timestamp } from '@angular/fire/firestore';
 import { map } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
+
 export interface ProjectMemberRow {
-  username: string;
+  userId: string;
+  displayName: string;
   joinedAt: Date | null;
 }
 
@@ -36,9 +38,14 @@ export class ProjectMembers implements OnInit, OnDestroy {
                 : raw instanceof Date
                   ? raw
                   : null;
-            const username =
-              typeof data['username'] === 'string' ? data['username'] : String(data['id'] ?? '');
-            return { username, joinedAt };
+            const userId = String(data['id'] ?? '');
+            const displayName =
+              typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
+                ? data['displayName'].trim()
+                : typeof data['username'] === 'string' && data['username'].trim() !== ''
+                  ? data['username'].trim()
+                  : userId;
+            return { userId, displayName, joinedAt };
           }),
         ),
       )

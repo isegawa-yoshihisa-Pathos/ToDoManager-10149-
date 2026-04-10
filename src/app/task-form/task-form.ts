@@ -50,7 +50,7 @@ export class TaskForm implements OnInit, OnChanges {
   readonly assigneeNone = '';
 
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
-  @Input() projectMembers: { username: string }[] = [];
+  @Input() projectMembers: { userId: string; displayName: string }[] = [];
 
   @Output() addTask = new EventEmitter<Task>();
 
@@ -64,7 +64,7 @@ export class TaskForm implements OnInit, OnChanges {
       priority: DEFAULT_TASK_PRIORITY,
       deadline: null,
       description: '',
-      assignee: DEFAULT_TASK_ASSIGNEE(this.auth.username()) ?? '',
+      assignee: DEFAULT_TASK_ASSIGNEE(this.auth.userId()) ?? '',
     };
   }
 
@@ -72,7 +72,7 @@ export class TaskForm implements OnInit, OnChanges {
     if (changes['taskScope']) {
       this.newTask.assignee =
         this.taskScope.kind === 'project'
-          ? DEFAULT_TASK_ASSIGNEE(this.auth.username()) ?? ''
+          ? DEFAULT_TASK_ASSIGNEE(this.auth.userId()) ?? ''
           : null;
     }
   }

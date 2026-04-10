@@ -1,25 +1,54 @@
 <div class="task-toolbar-wrap task-toolbar-with-add">
-  <button
-    type="button"
-    class="add-task-plus"
-    (click)="openAddTaskDialog()"
-    aria-label="タスクを追加"
-  >
-    +
-  </button>
+  <div class="task-toolbar-primary-col">
+    <button
+      type="button"
+      class="add-task-plus"
+      (click)="openAddTaskDialog()"
+      aria-label="タスクを追加"
+    >
+      タスクを追加+
+    </button>
+    <button
+      type="button"
+      class="task-list-hub-btn"
+      [class.active]="projectHubNavActive"
+      (click)="openProjectHub.emit()"
+      aria-label="タスクリストを追加"
+    >
+      タスクリストを追加＋
+    </button>
+  </div>
   <div class="filter-sort-stack">
     <div class="filter-bar">
       <span class="filter-label">絞り込み</span>
-      <mat-form-field appearance="outline" class="filter-field filter-select-multi" subscriptSizing="dynamic">
+      <mat-form-field appearance="outline" class="filter-field filter-select-multi filter-colors-field" subscriptSizing="dynamic">
         <mat-label>色</mat-label>
-        <mat-select multiple [(ngModel)]="filterState.colors" name="filterColors">
-          <mat-option *ngFor="let c of colorOptionsForFilter" [value]="c">{{ c }}</mat-option>
+        <mat-select multiple [(ngModel)]="filterState.colors" name="filterColors" panelClass="filter-colors-panel">
+          <mat-select-trigger>
+            <span class="filter-color-trigger">
+              @if (filterState.colors.length === 0) {
+                <span class="filter-color-trigger-placeholder">すべて</span>
+              } @else {
+                @for (c of filterState.colors; track c) {
+                  <span class="filter-color-chip" [style.background-color]="labelCssForFilter(c)"></span>
+                }
+              }
+            </span>
+          </mat-select-trigger>
+          <mat-option
+            *ngFor="let c of colorOptionsForFilter"
+            [value]="c"
+            class="filter-color-option"
+            [attr.aria-label]="'ラベル色 ' + c"
+          >
+            <span class="filter-color-swatch" [style.background-color]="labelCssForFilter(c)"></span>
+          </mat-option>
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline" class="filter-field filter-select-multi" subscriptSizing="dynamic">
         <mat-label>優先度</mat-label>
         <mat-select multiple [(ngModel)]="filterState.priorities" name="filterPriorities">
-          <mat-option *ngFor="let p of priorityFilterValues" [value]="p">優先度{{ p }}</mat-option>
+          <mat-option *ngFor="let p of priorityFilterValues" [value]="p">{{ p }}</mat-option>
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline" class="filter-field filter-due" subscriptSizing="dynamic">
@@ -34,7 +63,7 @@
           <mat-select [(ngModel)]="filterState.assignee" name="filterAssignee">
             <mat-option value="all">担当: すべて</mat-option>
             <mat-option value="unassigned">未割り当て</mat-option>
-            <mat-option *ngFor="let m of projectMembers" [value]="m.username">{{ m.username }}</mat-option>
+            <mat-option *ngFor="let m of projectMembers" [value]="m.userId">{{ m.displayName }}</mat-option>
           </mat-select>
         </mat-form-field>
       }
@@ -98,6 +127,7 @@
       <app-task-list-item
         [task]="task"
         [taskScope]="taskScope"
+        [projectMembers]="projectMembers"
         [showDragHandle]="canReorder"
       ></app-task-list-item>
     </div>

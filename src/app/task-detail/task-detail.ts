@@ -70,7 +70,7 @@ export class TaskDetail implements OnInit, OnDestroy {
   editDescription = '';
   editAssignee = '';
 
-  projectMembers: { username: string }[] = [];
+  projectMembers: { userId: string; displayName: string }[] = [];
   private membersSub?: Subscription;
 
   ngOnInit(): void {
@@ -93,33 +93,37 @@ export class TaskDetail implements OnInit, OnDestroy {
     this.membersSub = collectionData(ref, { idField: 'id' })
       .pipe(
         map((rows) =>
-          (rows as Record<string, unknown>[]).map((data) => ({
-            username:
-              typeof data['username'] === 'string'
-                ? data['username']
-                : String(data['id'] ?? ''),
-          })),
+          (rows as Record<string, unknown>[]).map((data) => {
+            const id = String(data['id'] ?? '');
+            const displayName =
+              typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
+                ? data['displayName'].trim()
+                : typeof data['username'] === 'string' && data['username'].trim() !== ''
+                  ? data['username'].trim()
+                  : id;
+            return { userId: id, displayName };
+          }),
         ),
       )
       .subscribe((members) => {
-        this.projectMembers = members.filter((m) => m.username);
+        this.projectMembers = members.filter((m) => m.userId);
       });
   }
 
   private taskDocRef() {
-    const username = this.auth.username();
-    if (!username || !this.taskId) {
+    const userId = this.auth.userId();
+    if (!userId || !this.taskId) {
       return null;
     }
     if (this.scopeParam === 'private') {
-      return doc(this.firestore, 'accounts', username, 'tasks', this.taskId);
+      return doc(this.firestore, 'accounts', userId, 'tasks', this.taskId);
     }
     if (this.scopeParam.startsWith('pl-')) {
       const listId = this.scopeParam.slice(3);
       return doc(
         this.firestore,
         'accounts',
-        username,
+        userId,
         'privateTaskLists',
         listId,
         'tasks',

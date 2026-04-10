@@ -1,10 +1,12 @@
 import {
   Component,
+  EventEmitter,
   inject,
   Input,
   OnChanges,
   OnDestroy,
   OnInit,
+  Output,
   SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -66,10 +68,15 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
 
+  /** プロジェクトハブ画面がアクティブなとき（タスクリスト追加ボタンの見た目用） */
+  @Input() projectHubNavActive = false;
+
+  @Output() openProjectHub = new EventEmitter<void>();
+
   tasks: Task[] = [];
 
   /** プロジェクトのメンバー（担当者選択・フィルタ用） */
-  projectMembers: { username: string }[] = [];
+  projectMembers: { userId: string; displayName: string }[] = [];
   private membersSub?: Subscription;
 
   /** 未選択は null（ソート条件から除外） */
@@ -97,6 +104,15 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   ];
 
   readonly priorityFilterValues = [5, 4, 3, 2, 1] as const;
+
+  /** フィルタのスウォッチ用。チャート外の #RRGGBB もその色で表示 */
+  labelCssForFilter(hex: string): string {
+    const t = hex?.trim() ?? '';
+    if (/^#[0-9A-Fa-f]{6}$/.test(t)) {
+      return t;
+    }
+    return '#bdbdbd';
+  }
 
   resetFilters(): void {
     this.filterState = defaultTaskFilterState();
@@ -176,16 +192,20 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     this.membersSub = collectionData(ref, { idField: 'id' })
       .pipe(
         map((rows) =>
-          (rows as Record<string, unknown>[]).map((data) => ({
-            username:
-              typeof data['username'] === 'string'
-                ? data['username']
-                : String(data['id'] ?? ''),
-          })),
+          (rows as Record<string, unknown>[]).map((data) => {
+            const id = String(data['id'] ?? '');
+            const displayName =
+              typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
+                ? data['displayName'].trim()
+                : typeof data['username'] === 'string' && data['username'].trim() !== ''
+                  ? data['username'].trim()
+                  : id;
+            return { userId: id, displayName };
+          }),
         ),
       )
       .subscribe((members) => {
-        this.projectMembers = members.filter((m) => m.username);
+        this.projectMembers = members.filter((m) => m.userId);
       });
   }
 
@@ -194,12 +214,12 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     this.sub = undefined;
     this.tasks = [];
 
-    const username = this.auth.username();
-    if (!username) {
+    const userId = this.auth.userId();
+    if (!userId) {
       return;
     }
 
-    const ref = this.tasksCollectionRef(username);
+    const ref = this.tasksCollectionRef(userId);
 
     this.sub = collectionData(ref, { idField: 'id' })
     .pipe(
@@ -249,11 +269,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   addTask(task: Task) {
-    const username = this.auth.username();
-    if (!username) {
+    const userId = this.auth.userId();
+    if (!userId) {
       return;
     }
-    const col = this.tasksCollectionRef(username);
+    const col = this.tasksCollectionRef(userId);
     const payload: Record<string, unknown> = {
       title: task.title,
       label: task.label,
@@ -283,17 +303,17 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     void this.persistTaskOrder(ordered);
   }
 
-  private tasksCollectionRef(username: string) {
+  private tasksCollectionRef(userId: string) {
     if (this.taskScope.kind === 'project') {
       return collection(this.firestore, 'projects', this.taskScope.projectId, 'tasks');
     }
     const pid = this.taskScope.privateListId;
     return pid === 'default'
-      ? collection(this.firestore, 'accounts', username, 'tasks')
+      ? collection(this.firestore, 'accounts', userId, 'tasks')
       : collection(
           this.firestore,
           'accounts',
-          username,
+          userId,
           'privateTaskLists',
           pid,
           'tasks',
@@ -301,8 +321,8 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   private taskDocRef(taskId: string) {
-    const username = this.auth.username();
-    if (!username) {
+    const userId = this.auth.userId();
+    if (!userId) {
       return null;
     }
     if (this.taskScope.kind === 'project') {
@@ -310,11 +330,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     }
     const pid = this.taskScope.privateListId;
     return pid === 'default'
-      ? doc(this.firestore, 'accounts', username, 'tasks', taskId)
+      ? doc(this.firestore, 'accounts', userId, 'tasks', taskId)
       : doc(
           this.firestore,
           'accounts',
-          username,
+          userId,
           'privateTaskLists',
           pid,
           'tasks',

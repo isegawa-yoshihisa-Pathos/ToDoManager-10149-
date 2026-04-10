@@ -38,7 +38,7 @@
           <mat-label>担当者</mat-label>
           <mat-select [(ngModel)]="editAssignee" name="assignee">
             <mat-option [value]="assigneeNone">未割り当て</mat-option>
-            <mat-option *ngFor="let m of projectMembers" [value]="m.username">{{ m.username }}</mat-option>
+            <mat-option *ngFor="let m of projectMembers" [value]="m.userId">{{ m.displayName }}</mat-option>
           </mat-select>
         </mat-form-field>
       </div>

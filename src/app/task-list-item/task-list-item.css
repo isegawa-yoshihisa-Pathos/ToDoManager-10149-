@@ -121,7 +121,8 @@
 .task-title {
   flex: 1 1 auto;
   min-width: 0;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .center {
@@ -143,7 +144,7 @@
 }
 
 .deadline-tag.deadline-overdue {
-  background: #fff2f0;
+  background: #ff8f7d;
   border-color: #ffccc7;
   color: #a8071a;
 }
@@ -165,6 +166,3 @@
   text-decoration: line-through;
 }
 
-.task-row.overdue .task-main:not(.done) {
-  box-shadow: inset 4px 0 0 #f5222d;
-}

@@ -14,16 +14,16 @@ export class Login {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
 
-  public username: string = '';
+  public userId: string = '';
   public password: string = '';
 
   async signIn() {
     try {
-      const ok = await this.auth.signIn(this.username, this.password);
+      const ok = await this.auth.signIn(this.userId, this.password);
       if (ok) {
         await this.router.navigate(['/user-window']);
       } else {
-        alert('ユーザー名またはパスワードが正しくありません');
+        alert('ユーザーIDまたはパスワードが正しくありません');
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : 'ログインに失敗しました');
