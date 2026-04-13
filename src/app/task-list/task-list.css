@@ -18,6 +18,16 @@
   align-items: stretch;
 }
 
+.view-mode-toggle,
+.calendar-gran-toggle {
+  align-self: flex-start;
+}
+
+.view-mode-toggle .mat-button-toggle,
+.calendar-gran-toggle .mat-button-toggle {
+  font-size: 13px;
+}
+
 .add-task-plus {
   flex: 0 0 auto;
   width: 150px;
@@ -177,10 +187,15 @@
   background: rgba(25, 118, 210, 0.08);
 }
 
-.task-list-shell {
+.task-list-shell,
+.task-calendar-shell {
   border-radius: 4px;
   overflow: hidden;
   background: #fff;
+}
+
+.task-calendar-shell {
+  padding: 12px;
 }
 
 .task-drop-list {

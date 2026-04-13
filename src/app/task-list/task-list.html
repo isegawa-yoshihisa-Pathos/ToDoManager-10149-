@@ -1,5 +1,27 @@
 <div class="task-toolbar-wrap task-toolbar-with-add">
   <div class="task-toolbar-primary-col">
+    <mat-button-toggle-group
+      class="view-mode-toggle"
+      [(ngModel)]="viewMode"
+      name="taskViewMode"
+      aria-label="表示モード"
+      (change)="onTaskListViewUiChange()"
+    >
+      <mat-button-toggle value="list">リスト</mat-button-toggle>
+      <mat-button-toggle value="calendar">カレンダー</mat-button-toggle>
+    </mat-button-toggle-group>
+    @if (viewMode === 'calendar') {
+      <mat-button-toggle-group
+        class="calendar-gran-toggle"
+        [(ngModel)]="calendarGranularity"
+        name="calendarGranularity"
+        aria-label="カレンダーの粒度"
+        (change)="onTaskListViewUiChange()"
+      >
+        <mat-button-toggle value="month">月</mat-button-toggle>
+        <mat-button-toggle value="week">週</mat-button-toggle>
+      </mat-button-toggle-group>
+    }
     <button
       type="button"
       class="add-task-plus"
@@ -103,33 +125,45 @@
   </div>
 </div>
 
-@if (canReorder) {
-  <p class="reorder-hint reorder-hint-active">左のドラッグハンドルを掴んで順序を変更できます。</p>
-} @else {
-  <p class="reorder-hint">
-    ドラッグで並び替えるには、絞り込み・並び替え条件をすべて初期状態（条件なし）にしてください。
-  </p>
+@if (viewMode === 'list') {
+  @if (canReorder) {
+    <p class="reorder-hint reorder-hint-active">左のドラッグハンドルを掴んで順序を変更できます。</p>
+  } @else {
+    <p class="reorder-hint">
+      ドラッグで並び替えるには、絞り込み・並び替え条件をすべて初期状態（条件なし）にしてください。
+    </p>
+  }
 }
 
-<div class="task-list-shell mat-elevation-z1">
-  <div
-    cdkDropList
-    class="task-drop-list"
-    (cdkDropListDropped)="onTaskDrop($event)"
-    [cdkDropListDisabled]="!canReorder"
-  >
+@if (viewMode === 'list') {
+  <div class="task-list-shell mat-elevation-z1">
     <div
-      *ngFor="let task of displayTasks; trackBy: trackByTaskId"
-      cdkDrag
-      class="task-list-drag-row"
-      [cdkDragDisabled]="!canReorder"
+      cdkDropList
+      class="task-drop-list"
+      (cdkDropListDropped)="onTaskDrop($event)"
+      [cdkDropListDisabled]="!canReorder"
     >
-      <app-task-list-item
-        [task]="task"
-        [taskScope]="taskScope"
-        [projectMembers]="projectMembers"
-        [showDragHandle]="canReorder"
-      ></app-task-list-item>
+      <div
+        *ngFor="let task of displayTasks; trackBy: trackByTaskId"
+        cdkDrag
+        class="task-list-drag-row"
+        [cdkDragDisabled]="!canReorder"
+      >
+        <app-task-list-item
+          [task]="task"
+          [taskScope]="taskScope"
+          [projectMembers]="projectMembers"
+          [showDragHandle]="canReorder"
+        ></app-task-list-item>
+      </div>
     </div>
   </div>
-</div>
+} @else {
+  <div class="task-calendar-shell mat-elevation-z1">
+    <app-task-calendar
+      [tasks]="displayTasks"
+      [taskScope]="taskScope"
+      [granularity]="calendarGranularity"
+    ></app-task-calendar>
+  </div>
+}

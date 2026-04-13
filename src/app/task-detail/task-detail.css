@@ -4,12 +4,22 @@
 
 .detail-header {
   margin: 0 1rem 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.detail-back {
+  flex: 0 0 auto;
 }
 
 .detail-title {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 20px;
   font-weight: 600;
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .detail-body {
@@ -19,6 +29,10 @@
 
 .field {
   margin-bottom: 1rem;
+}
+
+.field-done {
+  margin-bottom: 0.75rem;
 }
 
 .field-label {
@@ -78,6 +92,13 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-top: 1rem;
+}
+
+button.detail-delete-btn {
+  background-color: #d32f2f !important;
+  color: #fff !important;
 }

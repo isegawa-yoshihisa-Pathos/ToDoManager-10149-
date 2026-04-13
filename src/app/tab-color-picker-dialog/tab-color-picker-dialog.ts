@@ -38,6 +38,6 @@ export class TabColorPickerDialog {
   }
 
   isChartColorSelected(chartHex: string): boolean {
-      return (this.data.current?.trim() ?? '#ffffff') === chartHex;
-    }
+    return (this.data.current?.trim() ?? '#ffffff') === chartHex;
   }
+}

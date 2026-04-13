@@ -16,6 +16,7 @@ import {
   isDisplayTruncated,
   TASK_TITLE_DISPLAY_MAX_CHARS,
 } from '../display-ellipsis';
+import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 
 @Component({
   selector: 'app-task-list-item',
@@ -130,7 +131,10 @@ export class TaskListItem implements OnInit {
       return;
     }
     const scope = taskDetailScopeParam(this.taskScope);
-    void this.router.navigate(['/task', scope, id]);
+    saveTaskShellScrollPosition();
+    void this.router.navigate(['/task', scope, id], {
+      queryParams: { from: 'list' },
+    });
   }
 
   deleteTask(ev: Event): void {

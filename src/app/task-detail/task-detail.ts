@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  deleteDoc,
   deleteField,
   Timestamp,
   collection,
@@ -28,6 +29,8 @@ import {
   DEFAULT_TASK_PRIORITY,
   TASK_PRIORITY_OPTIONS,
 } from '../task-priority';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { TASK_RETURN_QUERY } from '../task-return-query';
 
 @Component({
   selector: 'app-task-detail',
@@ -36,6 +39,7 @@ import {
     CommonModule,
     FormsModule,
     MatButtonModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
@@ -69,6 +73,7 @@ export class TaskDetail implements OnInit, OnDestroy {
   editDeadline: Date | null = null;
   editDescription = '';
   editAssignee = '';
+  editDone = false;
 
   projectMembers: { userId: string; displayName: string }[] = [];
   private membersSub?: Subscription;
@@ -169,6 +174,7 @@ export class TaskDetail implements OnInit, OnDestroy {
     const rawAs = data['assignee'];
     this.editAssignee =
       typeof rawAs === 'string' && rawAs.trim() !== '' ? rawAs.trim() : '';
+    this.editDone = Boolean(data['done']);
     this.loading = false;
   }
 
@@ -183,6 +189,7 @@ export class TaskDetail implements OnInit, OnDestroy {
       label: this.editLabel.trim() || DEFAULT_TASK_LABEL_COLOR,
       priority: clampTaskPriority(this.editPriority),
       description: this.editDescription,
+      done: this.editDone,
     };
     if (this.editDeadline) {
       payload['deadline'] = Timestamp.fromDate(new Date(this.editDeadline));
@@ -200,14 +207,49 @@ export class TaskDetail implements OnInit, OnDestroy {
     }
     try {
       await updateDoc(ref, payload);
-      void this.router.navigate(['/user-window']);
+      this.navigateBackToTaskShell();
     } catch (e) {
       this.saveError = e instanceof Error ? e.message : '保存に失敗しました';
     }
   }
 
+  /** 一覧 or カレンダーへ（開いた経路に応じてクエリを付与） */
+  navigateBackToTaskShell(): void {
+    const q = this.route.snapshot.queryParamMap;
+    const from = q.get(TASK_RETURN_QUERY.from);
+    const cal = q.get(TASK_RETURN_QUERY.cal);
+    const queryParams: Record<string, string | null> = {
+      [TASK_RETURN_QUERY.taskView]: from === 'calendar' ? 'calendar' : 'list',
+      [TASK_RETURN_QUERY.cal]:
+        from === 'calendar' ? (cal === 'week' ? 'week' : 'month') : null,
+    };
+    void this.router.navigate(['/user-window'], { queryParams });
+  }
+
   back(): void {
-    void this.router.navigate(['/user-window']);
+    this.navigateBackToTaskShell();
+  }
+
+  backButtonLabel(): string {
+    const from = this.route.snapshot.queryParamMap.get(TASK_RETURN_QUERY.from);
+    return from === 'calendar' ? '← カレンダーへ戻る' : '← 一覧へ戻る';
+  }
+
+  async deleteTask(): Promise<void> {
+    this.saveError = null;
+    if (!confirm('このタスクを削除しますか？')) {
+      return;
+    }
+    const ref = this.taskDocRef();
+    if (!ref) {
+      return;
+    }
+    try {
+      await deleteDoc(ref);
+      this.navigateBackToTaskShell();
+    } catch (e) {
+      this.saveError = e instanceof Error ? e.message : '削除に失敗しました';
+    }
   }
 
   pageTitle(): string {

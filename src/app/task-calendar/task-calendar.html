@@ -1,0 +1,105 @@
+<div class="task-cal">
+  <div class="task-cal-toolbar">
+    @if (granularity === 'month') {
+      <button mat-stroked-button type="button" (click)="goPrevMonth()" aria-label="前の月">‹</button>
+      <span class="task-cal-title">{{ monthTitle }}</span>
+      <button mat-stroked-button type="button" (click)="goNextMonth()" aria-label="次の月">›</button>
+    } @else {
+      <button mat-stroked-button type="button" (click)="goPrevWeek()" aria-label="前の週">‹</button>
+      <span class="task-cal-title">{{ weekTitleRange }}</span>
+      <button mat-stroked-button type="button" (click)="goNextWeek()" aria-label="次の週">›</button>
+    }
+    <button mat-button type="button" (click)="goToday()">今日</button>
+  </div>
+
+  @if (granularity === 'month') {
+    <div class="task-cal-month-wrap">
+      <div class="task-cal-dow-row">
+        @for (w of weekdayLabels; track w) {
+          <div class="task-cal-dow-cell">{{ w }}</div>
+        }
+      </div>
+      @for (week of monthWeeks; track $index) {
+        <div class="task-cal-week-row">
+          @for (cell of week; track cell.date.getTime()) {
+            <div
+              class="task-cal-day-cell"
+              [class.other-month]="!cell.inMonth"
+              [class.is-today]="isToday(cell.date)"
+            >
+              <div class="task-cal-day-num">{{ cell.date.getDate() }}</div>
+              <div class="task-cal-day-tasks">
+                @for (task of cell.items; track task.id ?? task.title) {
+                  <button
+                    type="button"
+                    class="task-cal-chip"
+                    [class.task-cal-chip-done]="task.done"
+                    [style.border-left-color]="task.label || '#bdbdbd'"
+                    (click)="openTask(task)"
+                  >
+                    <span class="task-cal-chip-title" [class.task-cal-title-done]="task.done">{{
+                      task.title
+                    }}</span>
+                  </button>
+                }
+                @if (cell.overflow > 0) {
+                  <div class="task-cal-overflow">他{{ cell.overflow }}件</div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="task-cal-week-wrap">
+      @for (col of weekDays; track col.date.getTime()) {
+        <div class="task-cal-week-col" [class.is-today]="isToday(col.date)">
+          <div class="task-cal-week-head">
+            <span class="task-cal-week-dow">{{ weekdayLabels[col.date.getDay()] }}</span>
+            <span class="task-cal-week-date">{{ col.date.getMonth() + 1 }}/{{ col.date.getDate() }}</span>
+          </div>
+          <div class="task-cal-week-body">
+            @for (task of col.items; track task.id ?? task.title) {
+              <button
+                type="button"
+                class="task-cal-chip"
+                [class.task-cal-chip-done]="task.done"
+                [style.border-left-color]="task.label || '#bdbdbd'"
+                (click)="openTask(task)"
+              >
+                <span class="task-cal-chip-title" [class.task-cal-title-done]="task.done">{{
+                  task.title
+                }}</span>
+              </button>
+            }
+            @if (col.overflow > 0) {
+              <div class="task-cal-overflow">他{{ col.overflow }}件</div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (unscheduledTasks.length > 0) {
+    <div class="task-cal-unscheduled">
+      <h3 class="task-cal-unscheduled-title">期日なし</h3>
+      <div class="task-cal-unscheduled-list">
+        @for (task of unscheduledTasks; track task.id ?? task.title) {
+          <button
+            type="button"
+            class="task-cal-chip task-cal-chip-wide"
+            [class.task-cal-chip-done]="task.done"
+            [style.border-left-color]="task.label || '#bdbdbd'"
+            (click)="openTask(task)"
+          >
+            <span class="task-cal-chip-title" [class.task-cal-title-done]="task.done">{{
+              task.title
+            }}</span>
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>

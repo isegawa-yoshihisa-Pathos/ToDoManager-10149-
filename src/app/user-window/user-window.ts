@@ -1,11 +1,13 @@
 import {
   Component,
   computed,
+  DestroyRef,
   inject,
   OnDestroy,
   OnInit,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { TaskList } from '../task-list/task-list';
@@ -16,7 +18,8 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { AuthService } from '../auth.service';
 import { ProjectSessionService } from '../project-session.service';
 import { TaskScope } from '../task-scope';
@@ -40,6 +43,7 @@ import {
 } from '../nav-tab-order';
 import { TabColorPickerDialog } from '../tab-color-picker-dialog/tab-color-picker-dialog';
 import { displayEllipsis, isDisplayTruncated } from '../display-ellipsis';
+import { restoreTaskShellScrollPosition } from '../task-shell-scroll';
 
 export type NavEntry =
   | { key: string; kind: 'privateDefault'; label: string }
@@ -66,6 +70,7 @@ export type NavEntry =
 })
 export class UserWindow implements OnInit, OnDestroy {
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly auth = inject(AuthService);
   private readonly projectSession = inject(ProjectSessionService);
   private readonly firestore = inject(Firestore);
@@ -195,6 +200,16 @@ export class UserWindow implements OnInit, OnDestroy {
       .subscribe((rows) => {
         this.memberships.set(rows);
         this.persistSession();
+      });
+
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        filter((e) => e.urlAfterRedirects.split('?')[0] === '/user-window'),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        restoreTaskShellScrollPosition();
       });
   }
 

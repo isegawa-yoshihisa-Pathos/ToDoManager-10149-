@@ -5,11 +5,15 @@
   <button mat-flat-button color="primary" type="button" (click)="back()">一覧へ戻る</button>
 } @else {
   <div class="detail-header">
-    <button mat-button type="button" (click)="back()">← 一覧へ戻る</button>
+    <button mat-button type="button" class="detail-back" (click)="back()">{{ backButtonLabel() }}</button>
     <h1 class="detail-title">{{ pageTitle() }}</h1>
   </div>
 
   <div class="detail-body">
+    <div class="field field-done">
+      <mat-checkbox [(ngModel)]="editDone" name="editDone">完了</mat-checkbox>
+    </div>
+
     <div class="field">
       <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
         <mat-label>タスク名</mat-label>
@@ -82,6 +86,9 @@
 
     <div class="actions">
       <button mat-stroked-button type="button" (click)="back()">キャンセル</button>
+      <button mat-flat-button color="warn" type="button" class="detail-delete-btn" (click)="deleteTask()">
+        削除
+      </button>
       <button mat-flat-button color="primary" type="button" (click)="save()">保存</button>
     </div>
   </div>

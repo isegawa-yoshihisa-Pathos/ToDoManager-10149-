@@ -1,0 +1,194 @@
+.task-cal {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.task-cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.task-cal-title {
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 140px;
+  text-align: center;
+}
+
+.task-cal-month-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.task-cal-dow-row,
+.task-cal-week-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.task-cal-dow-cell {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.55);
+  padding: 4px 2px;
+}
+
+.task-cal-day-cell {
+  min-height: 100px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 4px;
+  background: #fff;
+  vertical-align: top;
+}
+
+.task-cal-day-cell.other-month {
+  background: rgba(0, 0, 0, 0.02);
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.task-cal-day-cell.is-today {
+  box-shadow: inset 0 0 0 2px rgba(25, 118, 210, 0.45);
+}
+
+.task-cal-day-num {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.task-cal-day-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-cal-week-wrap {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.task-cal-week-col {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  background: #fafafa;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: min(75vh, 900px);
+}
+
+.task-cal-week-col.is-today {
+  box-shadow: inset 0 0 0 2px rgba(25, 118, 210, 0.35);
+  background: #fff;
+}
+
+.task-cal-week-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.task-cal-week-dow {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.task-cal-week-date {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.task-cal-week-body {
+  padding: 4px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-cal-chip {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 4px 2px 6px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.task-cal-chip:hover {
+  background: rgba(25, 118, 210, 0.06);
+}
+
+/* リストの完了行（.task-main.done）と同様のグレー背景 */
+.task-cal-chip-done {
+  background-color: #bdbdbd;
+  opacity: 1;
+}
+
+.task-cal-chip-done:hover {
+  background-color: #a8a8a8;
+}
+
+.task-cal-title-done {
+  color: rgba(0, 0, 0, 0.45);
+  text-decoration: line-through;
+}
+
+.task-cal-chip-wide {
+  max-width: 480px;
+}
+
+.task-cal-chip-title {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.task-cal-overflow {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.5);
+  padding: 2px 0 0;
+}
+
+.task-cal-unscheduled {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.task-cal-unscheduled-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.task-cal-unscheduled-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

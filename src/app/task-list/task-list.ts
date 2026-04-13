@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   EventEmitter,
   inject,
   Input,
@@ -9,6 +10,8 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskListItem } from '../task-list-item/task-list-item';
@@ -43,6 +46,9 @@ import { map } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { TaskScope } from '../task-scope';
+import { TaskCalendar } from '../task-calendar/task-calendar';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { TASK_RETURN_QUERY } from '../task-return-query';
 
 @Component({
   selector: 'app-task-list',
@@ -50,8 +56,10 @@ import { TaskScope } from '../task-scope';
     CommonModule,
     FormsModule,
     TaskListItem,
+    TaskCalendar,
     DragDropModule,
     MatButtonModule,
+    MatButtonToggleModule,
     MatFormFieldModule,
     MatSelectModule,
     MatRadioModule,
@@ -64,6 +72,9 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private sub?: Subscription;
 
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
@@ -72,6 +83,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   @Input() projectHubNavActive = false;
 
   @Output() openProjectHub = new EventEmitter<void>();
+
+  /** リスト表示 / カレンダー表示 */
+  viewMode: 'list' | 'calendar' = 'list';
+  /** カレンダー時の月／週 */
+  calendarGranularity: 'month' | 'week' = 'month';
 
   tasks: Task[] = [];
 
@@ -154,6 +170,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   /** フィルタ初期・並び替え条件なしのときだけ手動ドラッグを有効にする */
   get canReorder(): boolean {
     return (
+      this.viewMode === 'list' &&
       isFilterDefaultForReorder(this.filterState, this.isProjectScope) &&
       this.sortKey1 === null &&
       this.sortKey2 === null &&
@@ -166,8 +183,35 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnInit() {
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((qp) => {
+        const tv = qp.get(TASK_RETURN_QUERY.taskView);
+        if (tv === 'calendar') {
+          this.viewMode = 'calendar';
+          this.calendarGranularity =
+            qp.get(TASK_RETURN_QUERY.cal) === 'week' ? 'week' : 'month';
+        } else if (tv === 'list') {
+          this.viewMode = 'list';
+        }
+      });
     this.subscribeTasks();
     this.subscribeProjectMembers();
+  }
+
+  /** ユーザーがリスト/カレンダーを切り替えたとき URL を同期（詳細からの戻りと一致させる） */
+  onTaskListViewUiChange(): void {
+    const queryParams: Record<string, string | null> = {
+      [TASK_RETURN_QUERY.taskView]: this.viewMode,
+      [TASK_RETURN_QUERY.cal]:
+        this.viewMode === 'calendar' ? this.calendarGranularity : null,
+    };
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -222,50 +266,50 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     const ref = this.tasksCollectionRef(userId);
 
     this.sub = collectionData(ref, { idField: 'id' })
-    .pipe(
-      map((rows) =>
-        (rows as Record<string, unknown>[]).map((data) => {
-          const raw = data['deadline'];
-          const done = Boolean(data['done']);
-          const label =
-            typeof data['label'] === 'string' && data['label'].trim() !== ''
-              ? data['label']
-              : '';
-          const deadline =
-            raw instanceof Timestamp
-              ? raw.toDate()
-              : raw instanceof Date
-                ? raw
-                : raw
-                  ? new Date(raw as string | number)
-                  : null;
-          const description =
-            typeof data['description'] === 'string' ? data['description'] : '';
-          const priority = clampTaskPriority(data['priority']);
-          const rawAssignee = data['assignee'];
-          const assignee =
-            typeof rawAssignee === 'string' && rawAssignee.trim() !== ''
-              ? rawAssignee.trim()
-              : null;
-          const rawOi = data['orderIndex'];
-          const orderIndex =
-            typeof rawOi === 'number' && !Number.isNaN(rawOi) ? rawOi : undefined;
-          return {
-            ...data,
-            done,
-            label,
-            deadline,
-            description,
-            priority,
-            assignee,
-            orderIndex,
-          } as Task;
-        }),
-      ),
-    )
-    .subscribe((tasks) => {
-      this.tasks = tasks;
-    });
+      .pipe(
+        map((rows) =>
+          (rows as Record<string, unknown>[]).map((data) => {
+            const raw = data['deadline'];
+            const done = Boolean(data['done']);
+            const label =
+              typeof data['label'] === 'string' && data['label'].trim() !== ''
+                ? data['label']
+                : '';
+            const deadline =
+              raw instanceof Timestamp
+                ? raw.toDate()
+                : raw instanceof Date
+                  ? raw
+                  : raw
+                    ? new Date(raw as string | number)
+                    : null;
+            const description =
+              typeof data['description'] === 'string' ? data['description'] : '';
+            const priority = clampTaskPriority(data['priority']);
+            const rawAssignee = data['assignee'];
+            const assignee =
+              typeof rawAssignee === 'string' && rawAssignee.trim() !== ''
+                ? rawAssignee.trim()
+                : null;
+            const rawOi = data['orderIndex'];
+            const orderIndex =
+              typeof rawOi === 'number' && !Number.isNaN(rawOi) ? rawOi : undefined;
+            return {
+              ...data,
+              done,
+              label,
+              deadline,
+              description,
+              priority,
+              assignee,
+              orderIndex,
+            } as Task;
+          }),
+        ),
+      )
+      .subscribe((tasks) => {
+        this.tasks = tasks;
+      });
   }
 
   addTask(task: Task) {
@@ -365,11 +409,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       if (!id) {
         return;
       }
-      const ref = this.taskDocRef(id);
-      if (!ref) {
+      const r = this.taskDocRef(id);
+      if (!r) {
         return;
       }
-      batch.update(ref, { orderIndex: index * 1000 });
+      batch.update(r, { orderIndex: index * 1000 });
     });
     try {
       await batch.commit();
