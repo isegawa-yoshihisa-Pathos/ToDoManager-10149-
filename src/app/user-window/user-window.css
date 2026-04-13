@@ -22,6 +22,16 @@ app-task-list {
 .account-menu-trigger {
   font-size: 15px;
   max-width: min(100%, 320px);
+}
+
+.account-btn-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.account-btn-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

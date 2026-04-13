@@ -95,22 +95,34 @@ export class ProjectService {
   private async addMember(projectId: string, userId: string): Promise<void> {
     const accSnap = await getDoc(doc(this.firestore, 'accounts', userId));
     let displayName = userId;
+    let avatarUrl: string | null = null;
     if (accSnap.exists()) {
-      const d = accSnap.data() as { displayName?: string; username?: string };
+      const d = accSnap.data() as {
+        displayName?: string;
+        username?: string;
+        avatarUrl?: string;
+      };
       displayName =
         typeof d['displayName'] === 'string' && d['displayName'].trim() !== ''
           ? d['displayName'].trim()
           : typeof d['username'] === 'string' && d['username'].trim() !== ''
             ? d['username'].trim()
             : userId;
+      if (typeof d['avatarUrl'] === 'string' && d['avatarUrl'].trim() !== '') {
+        avatarUrl = d['avatarUrl'].trim();
+      }
     }
     const memberRef = doc(this.firestore, 'projects', projectId, 'members', userId);
-    await setDoc(memberRef, {
+    const payload: Record<string, unknown> = {
       userId,
       displayName,
       username: userId,
       joinedAt: serverTimestamp(),
-    });
+    };
+    if (avatarUrl) {
+      payload['avatarUrl'] = avatarUrl;
+    }
+    await setDoc(memberRef, payload);
   }
 
   private async saveMembership(

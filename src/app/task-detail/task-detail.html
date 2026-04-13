@@ -10,8 +10,13 @@
   </div>
 
   <div class="detail-body">
-    <div class="field field-done">
-      <mat-checkbox [(ngModel)]="editDone" name="editDone">完了</mat-checkbox>
+    <div class="field">
+      <mat-form-field appearance="outline" class="full-width status-field" subscriptSizing="dynamic">
+        <mat-label>進捗</mat-label>
+        <mat-select [(ngModel)]="editStatus" name="taskStatus">
+          <mat-option *ngFor="let o of statusOptions" [value]="o.value">{{ o.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
     </div>
 
     <div class="field">
@@ -28,6 +33,7 @@
           type="button"
           *ngFor="let c of colorChart"
           class="swatch"
+          [class.swatch-white]="c === '#FFFFFF'"
           [style.backgroundColor]="c"
           [class.selected]="editLabel === c"
           [attr.aria-pressed]="editLabel === c"
@@ -40,9 +46,19 @@
       <div class="field">
         <mat-form-field appearance="outline" class="assignee-field" subscriptSizing="dynamic">
           <mat-label>担当者</mat-label>
-          <mat-select [(ngModel)]="editAssignee" name="assignee">
+          <mat-select [(ngModel)]="editAssignee" name="assignee" panelClass="assignee-select-panel">
             <mat-option [value]="assigneeNone">未割り当て</mat-option>
-            <mat-option *ngFor="let m of projectMembers" [value]="m.userId">{{ m.displayName }}</mat-option>
+            <mat-option *ngFor="let m of projectMembers" [value]="m.userId" class="assignee-option-row">
+              <span class="assignee-option-inner">
+                <app-user-avatar
+                  [userId]="m.userId"
+                  [displayName]="m.displayName"
+                  [avatarUrl]="m.avatarUrl"
+                  size="sm"
+                />
+                <span>{{ m.displayName }}</span>
+              </span>
+            </mat-option>
           </mat-select>
         </mat-form-field>
       </div>
@@ -66,18 +82,109 @@
       </mat-form-field>
     </div>
 
-    <div class="field">
-      <mat-form-field appearance="outline" class="memo-field" subscriptSizing="dynamic">
-        <mat-label>メモ</mat-label>
-        <textarea
-          matInput
-          class="memo"
-          [(ngModel)]="editDescription"
-          name="description"
-          rows="8"
-          placeholder="自由記述"
-        ></textarea>
-      </mat-form-field>
+    <div class="field chat-field">
+      <label class="field-label">チャット</label>
+      <div class="chat-panel mat-elevation-z1">
+        @if (legacyDescription) {
+          <div class="legacy-memo">
+            <span class="legacy-label">以前のメモ（移行前）</span>
+            <div class="legacy-body">{{ legacyDescription }}</div>
+          </div>
+        }
+        <div #chatScroll class="chat-scroll">
+          @for (m of chatMessages; track m.id) {
+            <div class="chat-bubble">
+              <div class="chat-bubble-head">
+                <app-user-avatar
+                  [userId]="m.authorUserId"
+                  [displayName]="m.authorDisplayName"
+                  [avatarUrl]="m.authorAvatarUrl"
+                  size="sm"
+                />
+                <span class="chat-author">{{ m.authorDisplayName }}</span>
+                <span class="chat-time">
+                  @if (m.createdAt) {
+                    {{ m.createdAt | date: 'yyyy/MM/dd HH:mm' }}
+                  } @else {
+                    …
+                  }
+                </span>
+              </div>
+              @if (m.text) {
+                <div class="chat-text">{{ m.text }}</div>
+              }
+              @if (m.attachments?.length) {
+                <div class="chat-attachments">
+                  @for (a of m.attachments; track a.url) {
+                    @if (a.kind === 'image') {
+                      <a [href]="a.url" target="_blank" rel="noopener noreferrer" class="chat-img-link">
+                        <img [src]="a.url" [alt]="a.name" class="chat-att-img" />
+                      </a>
+                    } @else {
+                      <a [href]="a.url" target="_blank" rel="noopener noreferrer" class="chat-file-link">{{
+                        a.name
+                      }}</a>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+        @if (chatAttachments.length) {
+          <ul class="chat-pending-files">
+            @for (f of chatAttachments; track $index) {
+              <li>
+                <span>{{ f.name }}</span>
+                <button mat-button type="button" (click)="removeChatAttachment($index)">削除</button>
+              </li>
+            }
+          </ul>
+        }
+        <div class="chat-composer">
+          <input
+            #fileInput
+            type="file"
+            multiple
+            class="chat-file-input"
+            (change)="onChatFilesSelected($event)"
+          />
+          <button
+            mat-icon-button
+            type="button"
+            class="chat-attach-btn"
+            (click)="fileInput.click()"
+            [disabled]="sendingChat"
+            aria-label="ファイルを添付"
+          >
+            <mat-icon>attach_file</mat-icon>
+          </button>
+          <mat-form-field appearance="outline" class="chat-input-field" subscriptSizing="dynamic">
+            <mat-label>メッセージ</mat-label>
+            <textarea
+              matInput
+              [(ngModel)]="chatInput"
+              name="chatInput"
+              rows="2"
+              placeholder="Enter で送信（Shift+Enter で改行）"
+              (keydown)="onChatKeydown($event)"
+            ></textarea>
+          </mat-form-field>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            class="chat-send-btn"
+            (click)="sendChat()"
+            [disabled]="sendingChat"
+          >
+            送信
+          </button>
+        </div>
+        @if (chatSendError) {
+          <p class="error chat-error">{{ chatSendError }}</p>
+        }
+      </div>
     </div>
 
     @if (saveError) {

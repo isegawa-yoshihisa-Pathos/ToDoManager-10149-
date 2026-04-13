@@ -1,0 +1,15 @@
+<span
+  class="ua"
+  [class.ua-sm]="size === 'sm'"
+  [class.ua-md]="size === 'md'"
+  [class.ua-lg]="size === 'lg'"
+  [style.--ua-bg]="fallbackBg()"
+  role="img"
+  [attr.aria-label]="displayName || userId"
+>
+  @if (avatarUrl) {
+    <img [src]="avatarUrl" alt="" />
+  } @else {
+    <span class="ua-initials">{{ initials() }}</span>
+  }
+</span>

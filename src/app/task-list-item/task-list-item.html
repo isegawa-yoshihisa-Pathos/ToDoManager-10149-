@@ -2,9 +2,13 @@
   class="task-row"
   [class.overdue]="isOverdue(task)"
   [style.--label-color]="labelStripColor()"
-  (click)="onTaskRowClick($event)"
+  (click)="cycleProgress($event)"
 >
-  <div class="label-strip" [style.background-color]="labelStripColor()"></div>
+  <div
+    class="label-strip"
+    [style.background-color]="labelStripColor()"
+    title="クリックで進捗を切り替え（未着手→処理中→完了）"
+  ></div>
   @if (showDragHandle) {
     <button
       type="button"
@@ -18,33 +22,39 @@
   }
   <div
     class="task-main"
-    [class.done]="task.done"
+    [class.done]="task.status === 'done'"
+    [class.in-progress]="task.status === 'in_progress'"
     (keydown)="onTaskMainKeydown($event)"
     role="button"
     tabindex="0"
-    [attr.aria-label]="'完了を切り替え: ' + task.title"
+    [attr.aria-label]="'進捗を切り替え（現在: ' + statusLabel() + '）: ' + task.title"
   >
     <div class="left">
-      <mat-checkbox
-        [ngModel]="task.done"
-        (ngModelChange)="onDoneChange($event)"
-        (click)="$event.stopPropagation()"
-        class="task-cb"
-        [attr.aria-label]="'完了: ' + task.title"
-      ></mat-checkbox>
+      <span class="task-status-badge" title="進捗">{{ statusLabel() }}</span>
       <span class="priority-mark">{{ priorityLabel() }}</span>
       @if (taskScope.kind === 'project' && task.assignee) {
-        <span class="assignee-badge" title="担当">{{ assigneeDisplay() }}</span>
+        <span
+          class="assignee-icon-wrap"
+          [matTooltip]="'担当: ' + assigneeDisplay()"
+          matTooltipPosition="above"
+        >
+          <app-user-avatar
+            [userId]="task.assignee!"
+            [displayName]="assigneeDisplay()"
+            [avatarUrl]="assigneeAvatarUrl()"
+            size="sm"
+          />
+        </span>
       }
       <span
         class="task-title"
-        [class.done]="task.done"
+        [class.done]="task.status === 'done'"
         [attr.title]="taskTitleTooltip()"
       >{{ taskTitleDisplay() }}</span>
     </div>
 
     <div class="center">
-      @if (task.deadline && !task.done) {
+      @if (task.deadline && task.status !== 'done') {
         <span
           class="deadline-tag"
           [class.deadline-overdue]="isOverdue(task)"

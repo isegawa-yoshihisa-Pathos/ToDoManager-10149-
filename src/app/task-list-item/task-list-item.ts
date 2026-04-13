@@ -1,9 +1,13 @@
 import { Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Task } from '../../models/task';
-import { MatCheckboxModule } from '@angular/material/checkbox';
+import {
+  firestoreStatusFields,
+  nextTaskStatus,
+  taskStatusLabel,
+  type TaskStatus,
+} from '../../models/task-status';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { DragDropModule } from '@angular/cdk/drag-drop';
@@ -17,17 +21,13 @@ import {
   TASK_TITLE_DISPLAY_MAX_CHARS,
 } from '../display-ellipsis';
 import { saveTaskShellScrollPosition } from '../task-shell-scroll';
+import { UserAvatar } from '../user-avatar/user-avatar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import type { ProjectMemberRow } from '../../models/project-member';
 
 @Component({
   selector: 'app-task-list-item',
-  imports: [
-    CommonModule,
-    FormsModule,
-    MatCheckboxModule,
-    MatButtonModule,
-    MatIconModule,
-    DragDropModule,
-  ],
+  imports: [CommonModule, MatButtonModule, MatIconModule, DragDropModule, UserAvatar, MatTooltipModule],
   templateUrl: './task-list-item.html',
   styleUrl: './task-list-item.css',
 })
@@ -41,14 +41,18 @@ export class TaskListItem implements OnInit {
   @Input() task: Task = {
     title: '',
     label: '',
-    done: false,
+    status: 'todo',
     priority: 3,
     deadline: new Date(),
   };
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
   /** プロジェクト時、担当表示名の解決用 */
-  @Input() projectMembers: { userId: string; displayName: string }[] = [];
+  @Input() projectMembers: ProjectMemberRow[] = [];
   @Input() showDragHandle = false;
+
+  statusLabel(): string {
+    return taskStatusLabel(this.task.status);
+  }
 
   priorityLabel(): string {
     return priorityShortLabel(this.task.priority);
@@ -64,7 +68,7 @@ export class TaskListItem implements OnInit {
     return isDisplayTruncated(t, TASK_TITLE_DISPLAY_MAX_CHARS) ? t : null;
   }
 
-  /** タスクの assignee はユーザーID。一覧ではユーザー名を表示 */
+  /** タスクの assignee はユーザーID。ツールチップ用に表示名を返す */
   assigneeDisplay(): string {
     const a = this.task.assignee?.trim();
     if (!a) {
@@ -74,14 +78,22 @@ export class TaskListItem implements OnInit {
     return m?.displayName ?? a;
   }
 
+  assigneeAvatarUrl(): string | null {
+    const a = this.task.assignee?.trim();
+    if (!a) {
+      return null;
+    }
+    const m = this.projectMembers.find((x) => x.userId === a);
+    return m?.avatarUrl ?? null;
+  }
+
   /** 左の色帯・行の背景トーンに使用 */
   labelStripColor(): string {
     const c = this.task.label?.trim();
     return c || '#e0e0e0';
   }
 
-  onDoneChange(done: boolean): void {
-    this.task.done = done;
+  private persistStatus(status: TaskStatus): void {
     const id = this.task.id;
     const userId = this.auth.userId();
     if (!id || !userId) {
@@ -91,18 +103,23 @@ export class TaskListItem implements OnInit {
     if (!ref) {
       return;
     }
-    updateDoc(ref, { done }).catch((err) => console.error('updateDoc failed:', err));
+    this.task.status = status;
+    updateDoc(ref, firestoreStatusFields(status)).catch((err) =>
+      console.error('updateDoc failed:', err),
+    );
   }
 
-  onTaskRowClick(ev: MouseEvent): void {
+  /** 色帯または行（操作・ドラッグ以外）のクリックで進捗を循環 */
+  cycleProgress(ev: MouseEvent): void {
     const el = ev.target as HTMLElement | null;
     if (!el) {
       return;
     }
-    if (el.closest('button, mat-checkbox, a, input, textarea, .drag-handle')) {
+    if (el.closest('button, a, input, textarea, .drag-handle, .actions')) {
       return;
     }
-    this.onDoneChange(!this.task.done);
+    ev.preventDefault();
+    this.persistStatus(nextTaskStatus(this.task.status));
   }
 
   onTaskMainKeydown(ev: KeyboardEvent): void {
@@ -110,14 +127,14 @@ export class TaskListItem implements OnInit {
       return;
     }
     ev.preventDefault();
-    this.onDoneChange(!this.task.done);
+    this.persistStatus(nextTaskStatus(this.task.status));
   }
 
   isOverdue(task: Task) {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     return (
-      !task.done &&
+      task.status !== 'done' &&
       task.deadline &&
       task.deadline.getTime() < start.getTime()
     );

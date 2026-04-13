@@ -1,0 +1,36 @@
+<h2 mat-dialog-title>プロフィール画像</h2>
+<div mat-dialog-content class="avatar-dialog-body">
+  <div class="avatar-preview-row">
+    <app-user-avatar
+      [userId]="auth.userId() ?? ''"
+      [displayName]="auth.displayName() ?? ''"
+      [avatarUrl]="displayAvatarUrl()"
+      size="lg"
+    />
+  </div>
+  <p class="hint">PNG / JPEG など（最大 2MB）。未設定のときはイニシャルが表示されます。</p>
+  <input
+    #fileInput
+    type="file"
+    accept="image/*"
+    class="hidden-input"
+    (change)="onPickFile($event)"
+  />
+  <button mat-stroked-button type="button" (click)="fileInput.click()" [disabled]="uploading">
+    画像を選ぶ
+  </button>
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+</div>
+<div mat-dialog-actions align="end">
+  @if (auth.avatarUrl() || pendingFile) {
+    <button mat-button type="button" (click)="clearAvatar()" [disabled]="uploading">
+      {{ pendingFile ? '選択を取り消し' : '画像を削除' }}
+    </button>
+  }
+  <button mat-button type="button" (click)="cancel()" [disabled]="uploading">キャンセル</button>
+  <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="uploading">
+    {{ uploading ? '処理中…' : '保存' }}
+  </button>
+</div>

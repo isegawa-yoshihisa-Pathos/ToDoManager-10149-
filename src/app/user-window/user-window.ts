@@ -42,6 +42,8 @@ import {
   tabKeyProject,
 } from '../nav-tab-order';
 import { TabColorPickerDialog } from '../tab-color-picker-dialog/tab-color-picker-dialog';
+import { AvatarSettingsDialog } from '../avatar-settings-dialog/avatar-settings-dialog';
+import { UserAvatar } from '../user-avatar/user-avatar';
 import { displayEllipsis, isDisplayTruncated } from '../display-ellipsis';
 import { restoreTaskShellScrollPosition } from '../task-shell-scroll';
 
@@ -64,6 +66,7 @@ export type NavEntry =
     MatIconModule,
     MatDialogModule,
     DragDropModule,
+    UserAvatar,
   ],
   templateUrl: './user-window.html',
   styleUrl: './user-window.css',
@@ -365,6 +368,13 @@ export class UserWindow implements OnInit, OnDestroy {
     } catch (e) {
       alert(e instanceof Error ? e.message : '更新に失敗しました');
     }
+  }
+
+  openAvatarSettings(): void {
+    this.dialog.open(AvatarSettingsDialog, {
+      width: 'min(96vw, 400px)',
+      autoFocus: 'first-tabbable',
+    });
   }
 
   signOut(): void {

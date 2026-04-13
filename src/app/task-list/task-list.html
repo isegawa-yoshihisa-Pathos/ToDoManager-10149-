@@ -9,6 +9,7 @@
     >
       <mat-button-toggle value="list">リスト</mat-button-toggle>
       <mat-button-toggle value="calendar">カレンダー</mat-button-toggle>
+      <mat-button-toggle value="kanban">カンバン</mat-button-toggle>
     </mat-button-toggle-group>
     @if (viewMode === 'calendar') {
       <mat-button-toggle-group
@@ -52,7 +53,11 @@
                 <span class="filter-color-trigger-placeholder">すべて</span>
               } @else {
                 @for (c of filterState.colors; track c) {
-                  <span class="filter-color-chip" [style.background-color]="labelCssForFilter(c)"></span>
+                  <span
+                    class="filter-color-chip"
+                    [class.filter-color-chip-white]="c === '#FFFFFF'"
+                    [style.background-color]="labelCssForFilter(c)"
+                  ></span>
                 }
               }
             </span>
@@ -63,7 +68,11 @@
             class="filter-color-option"
             [attr.aria-label]="'ラベル色 ' + c"
           >
-            <span class="filter-color-swatch" [style.background-color]="labelCssForFilter(c)"></span>
+            <span
+              class="filter-color-swatch"
+              [class.filter-color-swatch-white]="c === '#FFFFFF'"
+              [style.background-color]="labelCssForFilter(c)"
+            ></span>
           </mat-option>
         </mat-select>
       </mat-form-field>
@@ -82,10 +91,43 @@
       @if (isProjectScope) {
         <mat-form-field appearance="outline" class="filter-field filter-assignee" subscriptSizing="dynamic">
           <mat-label>担当者</mat-label>
-          <mat-select [(ngModel)]="filterState.assignee" name="filterAssignee">
+          <mat-select
+            [(ngModel)]="filterState.assignee"
+            name="filterAssignee"
+            panelClass="filter-assignee-panel"
+          >
+            <mat-select-trigger class="filter-assignee-trigger">
+              @if (filterState.assignee === 'all') {
+                <span>担当: すべて</span>
+              } @else if (filterState.assignee === 'unassigned') {
+                <span>未割り当て</span>
+              } @else if (filterSelectedMember(); as sm) {
+                <span class="filter-assignee-trigger-row">
+                  <app-user-avatar
+                    [userId]="sm.userId"
+                    [displayName]="sm.displayName"
+                    [avatarUrl]="sm.avatarUrl"
+                    size="sm"
+                  />
+                  <span>{{ sm.displayName }}</span>
+                </span>
+              } @else {
+                <span>{{ filterState.assignee }}</span>
+              }
+            </mat-select-trigger>
             <mat-option value="all">担当: すべて</mat-option>
             <mat-option value="unassigned">未割り当て</mat-option>
-            <mat-option *ngFor="let m of projectMembers" [value]="m.userId">{{ m.displayName }}</mat-option>
+            <mat-option *ngFor="let m of projectMembers" [value]="m.userId" class="filter-assignee-option">
+              <span class="filter-assignee-option-row">
+                <app-user-avatar
+                  [userId]="m.userId"
+                  [displayName]="m.displayName"
+                  [avatarUrl]="m.avatarUrl"
+                  size="sm"
+                />
+                <span>{{ m.displayName }}</span>
+              </span>
+            </mat-option>
           </mat-select>
         </mat-form-field>
       }
@@ -157,6 +199,91 @@
         ></app-task-list-item>
       </div>
     </div>
+  </div>
+} @else if (viewMode === 'kanban') {
+  <div class="kanban-board-outer">
+    <div class="kanban-board-inner">
+      @for (col of kanbanColumnList; track col.id) {
+        <div class="kanban-column">
+          <div class="kanban-column-head">
+            <h3 class="kanban-column-title">{{ col.title }}</h3>
+            <button
+              mat-button
+              type="button"
+              class="kanban-column-edit-btn"
+              [matMenuTriggerFor]="kanbanColumnEditMenu"
+              (mousedown)="kanbanEditColumn = col; $event.stopPropagation()"
+              (click)="$event.stopPropagation()"
+            >
+              編集
+            </button>
+          </div>
+          <div
+            cdkDropList
+            [id]="kanbanListId(col.id)"
+            [cdkDropListConnectedTo]="kanbanConnectedIds()"
+            class="kanban-drop-list"
+            (cdkDropListDropped)="onKanbanDrop($event)"
+          >
+            @for (task of tasksForKanbanColumnId(col.id); track task.id) {
+              <div
+                cdkDrag
+                [cdkDragData]="task"
+                class="kanban-card"
+                [style.--label-color]="kanbanLabelColor(task)"
+                (click)="onKanbanCardClick($event, task)"
+              >
+                <div
+                  class="kanban-label-strip"
+                  [style.background-color]="kanbanLabelColor(task)"
+                ></div>
+                <div
+                  class="kanban-card-main"
+                  [class.done]="task.status === 'done'"
+                  [class.in-progress]="task.status === 'in_progress'"
+                >
+                  <span class="kanban-card-title">{{ task.title || '（無題）' }}</span>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    class="kanban-detail-btn"
+                    (click)="openKanbanDetail($event, task)"
+                  >
+                    詳細
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+      <div class="kanban-column kanban-add-list-column">
+        <h3 class="kanban-column-title kanban-add-list-heading" aria-hidden="true">&nbsp;</h3>
+        <div class="kanban-drop-list kanban-add-list-drop">
+          <button
+            type="button"
+            class="kanban-add-list-plus"
+            (click)="addKanbanColumn()"
+            aria-label="カンバンにリストを追加"
+          >
+            ＋
+          </button>
+        </div>
+      </div>
+    </div>
+    <mat-menu #kanbanColumnEditMenu="matMenu">
+      @if (kanbanEditColumn; as ec) {
+        <button mat-menu-item type="button" (click)="renameKanbanColumn(ec)">名称の変更</button>
+        <button
+          mat-menu-item
+          type="button"
+          [disabled]="kanbanColumnList.length <= 1"
+          (click)="deleteKanbanColumn(ec)"
+        >
+          カンバンの削除
+        </button>
+      }
+    </mat-menu>
   </div>
 } @else {
   <div class="task-calendar-shell mat-elevation-z1">

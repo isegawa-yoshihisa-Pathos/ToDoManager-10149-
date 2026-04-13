@@ -15,9 +15,19 @@
     @if (taskScope.kind === 'project') {
       <mat-form-field appearance="outline" class="assignee-select" subscriptSizing="dynamic">
         <mat-label>担当</mat-label>
-        <mat-select [(ngModel)]="newTask.assignee" name="assignee">
+        <mat-select [(ngModel)]="newTask.assignee" name="assignee" panelClass="assignee-select-panel">
           <mat-option [value]="assigneeNone">未割り当て</mat-option>
-          <mat-option *ngFor="let m of projectMembers" [value]="m.userId">{{ m.displayName }}</mat-option>
+          <mat-option *ngFor="let m of projectMembers" [value]="m.userId" class="assignee-option-row">
+            <span class="assignee-option-inner">
+              <app-user-avatar
+                [userId]="m.userId"
+                [displayName]="m.displayName"
+                [avatarUrl]="m.avatarUrl"
+                size="sm"
+              />
+              <span>{{ m.displayName }}</span>
+            </span>
+          </mat-option>
         </mat-select>
       </mat-form-field>
     }
@@ -42,6 +52,7 @@
       type="button"
       *ngFor="let c of colorChart"
       class="swatch"
+      [class.swatch-white]="c === '#FFFFFF'"
       [style.backgroundColor]="c"
       [class.selected]="newTask.label === c"
       [attr.aria-pressed]="newTask.label === c"

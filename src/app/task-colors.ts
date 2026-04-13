@@ -9,6 +9,8 @@ export const TASK_COLOR_CHART = [
   '#E6EE9C',
   '#FFCC80',
   '#FFAB91',
+  /** 無色（白） */
+  '#FFFFFF',
 ] as const;
 
 export const DEFAULT_TASK_LABEL_COLOR = TASK_COLOR_CHART[0];

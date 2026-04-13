@@ -7,10 +7,19 @@
       class="account-menu-trigger"
       [matMenuTriggerFor]="accountMenu"
     >
-      {{ auth.displayName() ?? auth.userId() }}
+      <span class="account-btn-inner">
+        <app-user-avatar
+          [userId]="auth.userId() ?? ''"
+          [displayName]="auth.displayName() ?? ''"
+          [avatarUrl]="auth.avatarUrl()"
+          size="sm"
+        />
+        <span class="account-btn-label">{{ auth.displayName() ?? auth.userId() }}</span>
+      </span>
     </button>
     <mat-menu #accountMenu="matMenu">
       <button mat-menu-item type="button" (click)="changeDisplayName()">ユーザー名を変更</button>
+      <button mat-menu-item type="button" (click)="openAvatarSettings()">プロフィール画像</button>
       <button mat-menu-item type="button" (click)="signOut()">サインアウト</button>
     </mat-menu>
   </div>

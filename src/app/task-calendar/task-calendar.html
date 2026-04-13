@@ -33,13 +33,24 @@
                   <button
                     type="button"
                     class="task-cal-chip"
-                    [class.task-cal-chip-done]="task.done"
-                    [style.border-left-color]="task.label || '#bdbdbd'"
+                    [style.--label-color]="labelColor(task)"
                     (click)="openTask(task)"
                   >
-                    <span class="task-cal-chip-title" [class.task-cal-title-done]="task.done">{{
-                      task.title
-                    }}</span>
+                    <span
+                      class="task-cal-label-strip"
+                      [style.background-color]="labelColor(task)"
+                      aria-hidden="true"
+                    ></span>
+                    <span
+                      class="task-cal-chip-main"
+                      [class.done]="task.status === 'done'"
+                      [class.in-progress]="task.status === 'in_progress'"
+                    >
+                      <span
+                        class="task-cal-chip-title"
+                        [class.task-cal-title-done]="task.status === 'done'"
+                        >{{ task.title }}</span>
+                    </span>
                   </button>
                 }
                 @if (cell.overflow > 0) {
@@ -64,13 +75,24 @@
               <button
                 type="button"
                 class="task-cal-chip"
-                [class.task-cal-chip-done]="task.done"
-                [style.border-left-color]="task.label || '#bdbdbd'"
+                [style.--label-color]="labelColor(task)"
                 (click)="openTask(task)"
               >
-                <span class="task-cal-chip-title" [class.task-cal-title-done]="task.done">{{
-                  task.title
-                }}</span>
+                <span
+                  class="task-cal-label-strip"
+                  [style.background-color]="labelColor(task)"
+                  aria-hidden="true"
+                ></span>
+                <span
+                  class="task-cal-chip-main"
+                  [class.done]="task.status === 'done'"
+                  [class.in-progress]="task.status === 'in_progress'"
+                >
+                  <span
+                    class="task-cal-chip-title"
+                    [class.task-cal-title-done]="task.status === 'done'"
+                    >{{ task.title }}</span>
+                </span>
               </button>
             }
             @if (col.overflow > 0) {
@@ -90,13 +112,24 @@
           <button
             type="button"
             class="task-cal-chip task-cal-chip-wide"
-            [class.task-cal-chip-done]="task.done"
-            [style.border-left-color]="task.label || '#bdbdbd'"
+            [style.--label-color]="labelColor(task)"
             (click)="openTask(task)"
           >
-            <span class="task-cal-chip-title" [class.task-cal-title-done]="task.done">{{
-              task.title
-            }}</span>
+            <span
+              class="task-cal-label-strip"
+              [style.background-color]="labelColor(task)"
+              aria-hidden="true"
+            ></span>
+            <span
+              class="task-cal-chip-main"
+              [class.done]="task.status === 'done'"
+              [class.in-progress]="task.status === 'in_progress'"
+            >
+              <span
+                class="task-cal-chip-title"
+                [class.task-cal-title-done]="task.status === 'done'"
+                >{{ task.title }}</span>
+            </span>
           </button>
         }
       </div>

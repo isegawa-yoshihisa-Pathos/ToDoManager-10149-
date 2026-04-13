@@ -76,7 +76,7 @@ function matchesDueDateFilter(task: Task, filter: DueDateFilter, now: Date): boo
   const days = calendarDaysFromToday(dl, now);
   switch (filter) {
     case 'overdue':
-      return days < 0 && !task.done;
+      return days < 0 && task.status !== 'done';
     case 'today':
       return days === 0;
     case 'within_7':

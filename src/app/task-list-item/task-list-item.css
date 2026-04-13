@@ -13,6 +13,7 @@
   width: 6px;
   min-height: 100%;
   align-self: stretch;
+  cursor: pointer;
 }
 
 .drag-handle {
@@ -55,15 +56,27 @@
 }
 
 .task-main:not(.done) {
-  background: color-mix(in srgb, var(--label-color) 34%, #fafafa);
+  background: color-mix(in srgb, var(--label-color) 40%, #fafafa);
 }
 
 .task-main:hover:not(.done) {
-  background: color-mix(in srgb, var(--label-color) 42%, #f5f5f5);
-}
+  background: color-mix(in srgb, var(--label-color) 30%, #fafafa);
+} 
 
 .task-main.done {
   background-color: #bdbdbd;
+}
+
+.task-main.done:hover {
+  background-color: #b8b8b8;
+}
+
+.task-main.in-progress:not(.done) {
+  background: color-mix(in srgb, var(--label-color) 100%, #fafafa);
+}
+
+.task-main.in-progress:hover:not(.done) {
+  background: color-mix(in srgb, var(--label-color) 90%, #fafafa);
 }
 
 .task-main:focus-visible {
@@ -80,8 +93,27 @@
   gap: 8px;
 }
 
-.task-cb {
+.task-status-badge {
   flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  color: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  max-width: 4.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignee-icon-wrap {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
 }
 
 .assignee-badge {

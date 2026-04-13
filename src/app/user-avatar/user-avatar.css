@@ -1,0 +1,47 @@
+.ua {
+  --ua-size: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ua-size);
+  height: var(--ua-size);
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--ua-bg, #78909c);
+  color: #fff;
+  font-weight: 600;
+  font-size: calc(var(--ua-size) * 0.36);
+  line-height: 1;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.ua-sm {
+  --ua-size: 22px;
+  font-size: calc(var(--ua-size) * 0.38);
+}
+
+.ua-md {
+  --ua-size: 28px;
+}
+
+.ua-lg {
+  --ua-size: 36px;
+  font-size: calc(var(--ua-size) * 0.34);
+}
+
+.ua img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ua-initials {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+  padding: 0 1px;
+}

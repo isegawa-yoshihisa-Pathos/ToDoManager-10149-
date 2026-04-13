@@ -15,6 +15,12 @@
   min-width: 160px;
 }
 
+.assignee-option-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .assignee-select {
   flex: 0 0 180px;
   min-width: 140px;
@@ -56,4 +62,12 @@
 .swatch.selected {
   border-color: rgba(0, 0, 0, 0.45);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+}
+
+.swatch.swatch-white {
+  border-color: rgba(0, 0, 0, 0.22);
+}
+
+.swatch.swatch-white.selected {
+  border-color: rgba(0, 0, 0, 0.45);
 }

@@ -22,6 +22,8 @@ import { DEFAULT_TASK_PRIORITY, TASK_PRIORITY_OPTIONS } from '../task-priority';
 import { TaskScope } from '../task-scope';
 import { AuthService } from '../auth.service';
 import { DEFAULT_TASK_ASSIGNEE } from '../task-assignee';
+import type { ProjectMemberRow } from '../../models/project-member';
+import { UserAvatar } from '../user-avatar/user-avatar';
 
 @Component({
   selector: 'app-task-form',
@@ -34,6 +36,7 @@ import { DEFAULT_TASK_ASSIGNEE } from '../task-assignee';
     MatButtonModule,
     MatSelectModule,
     MatIconModule,
+    UserAvatar,
   ],
   templateUrl: './task-form.html',
   styleUrl: './task-form.css',
@@ -50,7 +53,7 @@ export class TaskForm implements OnInit, OnChanges {
   readonly assigneeNone = '';
 
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
-  @Input() projectMembers: { userId: string; displayName: string }[] = [];
+  @Input() projectMembers: ProjectMemberRow[] = [];
 
   @Output() addTask = new EventEmitter<Task>();
 
@@ -60,7 +63,7 @@ export class TaskForm implements OnInit, OnChanges {
     return {
       title: '',
       label: DEFAULT_TASK_LABEL_COLOR,
-      done: false,
+      status: 'todo',
       priority: DEFAULT_TASK_PRIORITY,
       deadline: null,
       description: '',
@@ -81,7 +84,7 @@ export class TaskForm implements OnInit, OnChanges {
     const base: Task = {
       title: this.newTask.title,
       label: this.newTask.label?.trim() || DEFAULT_TASK_LABEL_COLOR,
-      done: false,
+      status: 'todo',
       priority: this.newTask.priority,
       deadline: this.newTask.deadline ? new Date(this.newTask.deadline) : null,
       description: '',

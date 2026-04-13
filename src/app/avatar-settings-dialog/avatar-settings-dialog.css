@@ -1,0 +1,32 @@
+.avatar-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.avatar-preview-row {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.hidden-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.error {
+  margin: 0;
+  color: #cf1322;
+  font-size: 13px;
+}

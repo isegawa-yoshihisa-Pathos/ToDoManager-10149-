@@ -1,4 +1,12 @@
-import { Component, DestroyRef, inject, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  inject,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,7 +21,13 @@ import {
   Timestamp,
   collection,
   collectionData,
+  query,
+  orderBy,
+  setDoc,
+  serverTimestamp,
+  DocumentReference,
 } from '@angular/fire/firestore';
+import { Storage, ref, uploadBytes, getDownloadURL } from '@angular/fire/storage';
 import { map } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth.service';
@@ -29,8 +43,18 @@ import {
   DEFAULT_TASK_PRIORITY,
   TASK_PRIORITY_OPTIONS,
 } from '../task-priority';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { TASK_RETURN_QUERY } from '../task-return-query';
+import {
+  firestoreStatusFields,
+  normalizeTaskStatusFromDoc,
+  TASK_STATUS_OPTIONS,
+  type TaskStatus,
+} from '../../models/task-status';
+import type { TaskMessageAttachment } from '../../models/task-message';
+import type { ProjectMemberRow } from '../../models/project-member';
+import { UserAvatar } from '../user-avatar/user-avatar';
+
+const MAX_CHAT_FILE_BYTES = 8 * 1024 * 1024;
 
 @Component({
   selector: 'app-task-detail',
@@ -39,12 +63,12 @@ import { TASK_RETURN_QUERY } from '../task-return-query';
     CommonModule,
     FormsModule,
     MatButtonModule,
-    MatCheckboxModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
     MatDatepickerModule,
     MatIconModule,
+    UserAvatar,
   ],
   templateUrl: './task-detail.html',
   styleUrl: './task-detail.css',
@@ -53,16 +77,21 @@ export class TaskDetail implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly firestore = inject(Firestore);
+  private readonly storage = inject(Storage);
   private readonly auth = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
+
+  @ViewChild('chatScroll') private chatScroll?: ElementRef<HTMLDivElement>;
 
   readonly colorChart = TASK_COLOR_CHART;
   readonly priorityOptions = TASK_PRIORITY_OPTIONS;
   readonly assigneeNone = '';
+  readonly statusOptions = TASK_STATUS_OPTIONS;
 
   loading = true;
   notFound = false;
   saveError: string | null = null;
+  chatSendError: string | null = null;
 
   scopeParam = '';
   taskId = '';
@@ -71,12 +100,29 @@ export class TaskDetail implements OnInit, OnDestroy {
   editLabel: string = DEFAULT_TASK_LABEL_COLOR;
   editPriority = DEFAULT_TASK_PRIORITY;
   editDeadline: Date | null = null;
-  editDescription = '';
   editAssignee = '';
-  editDone = false;
+  editStatus: TaskStatus = 'todo';
 
-  projectMembers: { userId: string; displayName: string }[] = [];
+  /** 従来フィールド description（チャット移行前）。表示のみ */
+  legacyDescription = '';
+
+  chatMessages: {
+    id: string;
+    authorUserId: string;
+    authorDisplayName: string;
+    authorAvatarUrl: string | null;
+    text: string;
+    createdAt: Date | null;
+    attachments: TaskMessageAttachment[];
+  }[] = [];
+
+  chatInput = '';
+  sendingChat = false;
+  chatAttachments: File[] = [];
+
+  projectMembers: ProjectMemberRow[] = [];
   private membersSub?: Subscription;
+  private messagesSub?: Subscription;
 
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
@@ -94,8 +140,8 @@ export class TaskDetail implements OnInit, OnDestroy {
     if (this.scopeParam === 'private' || this.scopeParam.startsWith('pl-') || !this.scopeParam) {
       return;
     }
-    const ref = collection(this.firestore, 'projects', this.scopeParam, 'members');
-    this.membersSub = collectionData(ref, { idField: 'id' })
+    const refCol = collection(this.firestore, 'projects', this.scopeParam, 'members');
+    this.membersSub = collectionData(refCol, { idField: 'id' })
       .pipe(
         map((rows) =>
           (rows as Record<string, unknown>[]).map((data) => {
@@ -106,7 +152,11 @@ export class TaskDetail implements OnInit, OnDestroy {
                 : typeof data['username'] === 'string' && data['username'].trim() !== ''
                   ? data['username'].trim()
                   : id;
-            return { userId: id, displayName };
+            const avatarUrl =
+              typeof data['avatarUrl'] === 'string' && data['avatarUrl'].trim() !== ''
+                ? data['avatarUrl'].trim()
+                : null;
+            return { userId: id, displayName, avatarUrl };
           }),
         ),
       )
@@ -115,7 +165,7 @@ export class TaskDetail implements OnInit, OnDestroy {
       });
   }
 
-  private taskDocRef() {
+  private taskDocRef(): DocumentReference | null {
     const userId = this.auth.userId();
     if (!userId || !this.taskId) {
       return null;
@@ -138,10 +188,81 @@ export class TaskDetail implements OnInit, OnDestroy {
     return doc(this.firestore, 'projects', this.scopeParam, 'tasks', this.taskId);
   }
 
+  private subscribeMessages(taskRef: DocumentReference): void {
+    this.messagesSub?.unsubscribe();
+    const col = collection(taskRef, 'messages');
+    const q = query(col, orderBy('createdAt', 'asc'));
+    this.messagesSub = collectionData(q, { idField: 'id' })
+      .pipe(
+        map((rows) =>
+          (rows as Record<string, unknown>[]).map((data) => {
+            const raw = data['createdAt'];
+            const createdAt =
+              raw instanceof Timestamp
+                ? raw.toDate()
+                : raw instanceof Date
+                  ? raw
+                  : null;
+            const attRaw = data['attachments'];
+            const attachments: TaskMessageAttachment[] = Array.isArray(attRaw)
+              ? attRaw
+                  .map((a) => a as Record<string, unknown>)
+                  .filter((a) => typeof a['url'] === 'string')
+                  .map((a) => ({
+                    kind:
+                      a['kind'] === 'file' || a['kind'] === 'image'
+                        ? (a['kind'] as 'image' | 'file')
+                        : String(a['kind'] ?? '').startsWith('image')
+                          ? 'image'
+                          : 'file',
+                    name: typeof a['name'] === 'string' ? a['name'] : 'file',
+                    url: String(a['url']),
+                  }))
+              : [];
+            return {
+              id: String(data['id'] ?? ''),
+              authorUserId:
+                typeof data['authorUserId'] === 'string' ? data['authorUserId'] : '',
+              authorDisplayName:
+                typeof data['authorDisplayName'] === 'string'
+                  ? data['authorDisplayName']
+                  : '',
+              authorAvatarUrl:
+                typeof data['authorAvatarUrl'] === 'string'
+                  ? data['authorAvatarUrl']
+                  : null,
+              text: typeof data['text'] === 'string' ? data['text'] : '',
+              createdAt,
+              attachments,
+            };
+          }),
+        ),
+      )
+      .subscribe((msgs) => {
+        this.chatMessages = msgs;
+        this.scheduleScrollChatToBottom();
+      });
+  }
+
+  private scheduleScrollChatToBottom(): void {
+    queueMicrotask(() => {
+      const el = this.chatScroll?.nativeElement;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+  }
+
   private async load(): Promise<void> {
     this.loading = true;
     this.notFound = false;
     this.saveError = null;
+    this.chatSendError = null;
+    this.messagesSub?.unsubscribe();
+    this.messagesSub = undefined;
+    this.chatMessages = [];
+    this.legacyDescription = '';
+
     const ref = this.taskDocRef();
     if (!ref) {
       this.notFound = true;
@@ -168,13 +289,14 @@ export class TaskDetail implements OnInit, OnDestroy {
           : raw
             ? new Date(raw as string | number)
             : null;
-    this.editDescription =
-      typeof data['description'] === 'string' ? data['description'] : '';
+    const desc = typeof data['description'] === 'string' ? data['description'] : '';
+    this.legacyDescription = desc.trim() !== '' ? desc : '';
     this.editPriority = clampTaskPriority(data['priority']);
     const rawAs = data['assignee'];
     this.editAssignee =
       typeof rawAs === 'string' && rawAs.trim() !== '' ? rawAs.trim() : '';
-    this.editDone = Boolean(data['done']);
+    this.editStatus = normalizeTaskStatusFromDoc(data);
+    this.subscribeMessages(ref);
     this.loading = false;
   }
 
@@ -188,8 +310,7 @@ export class TaskDetail implements OnInit, OnDestroy {
       title: this.editTitle.trim() || '（無題）',
       label: this.editLabel.trim() || DEFAULT_TASK_LABEL_COLOR,
       priority: clampTaskPriority(this.editPriority),
-      description: this.editDescription,
-      done: this.editDone,
+      ...firestoreStatusFields(this.editStatus),
     };
     if (this.editDeadline) {
       payload['deadline'] = Timestamp.fromDate(new Date(this.editDeadline));
@@ -213,13 +334,107 @@ export class TaskDetail implements OnInit, OnDestroy {
     }
   }
 
+  private chatStorageBasePath(messageId: string): string {
+    const userId = this.auth.userId() ?? 'anon';
+    const tid = this.taskId;
+    if (this.scopeParam === 'private') {
+      return `chat/acc/${userId}/tasks/${tid}/msg/${messageId}`;
+    }
+    if (this.scopeParam.startsWith('pl-')) {
+      const listId = this.scopeParam.slice(3);
+      return `chat/acc/${userId}/pl/${listId}/tasks/${tid}/msg/${messageId}`;
+    }
+    return `chat/proj/${this.scopeParam}/tasks/${tid}/msg/${messageId}`;
+  }
+
+  private safeFileName(name: string): string {
+    return name.replace(/[^\w.\-]+/g, '_').slice(0, 180) || 'file';
+  }
+
+  onChatFilesSelected(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const files = input.files;
+    input.value = '';
+    if (!files?.length) {
+      return;
+    }
+    const next = [...this.chatAttachments];
+    for (const f of Array.from(files)) {
+      if (f.size > MAX_CHAT_FILE_BYTES) {
+        this.chatSendError = `「${f.name}」は 8MB 以下にしてください`;
+        return;
+      }
+      next.push(f);
+    }
+    this.chatAttachments = next;
+    this.chatSendError = null;
+  }
+
+  removeChatAttachment(index: number): void {
+    this.chatAttachments = this.chatAttachments.filter((_, i) => i !== index);
+  }
+
+  async sendChat(): Promise<void> {
+    this.chatSendError = null;
+    const uid = this.auth.userId();
+    const taskRef = this.taskDocRef();
+    if (!uid || !taskRef) {
+      return;
+    }
+    const text = this.chatInput.trim();
+    if (!text && this.chatAttachments.length === 0) {
+      return;
+    }
+    const col = collection(taskRef, 'messages');
+    const msgRef = doc(col);
+    const msgId = msgRef.id;
+    this.sendingChat = true;
+    try {
+      const attachments: TaskMessageAttachment[] = [];
+      for (const f of this.chatAttachments) {
+        const path = `${this.chatStorageBasePath(msgId)}/${this.safeFileName(f.name)}`;
+        const r = ref(this.storage, path);
+        await uploadBytes(r, f, { contentType: f.type || 'application/octet-stream' });
+        const url = await getDownloadURL(r);
+        const kind: 'image' | 'file' = f.type.startsWith('image/') ? 'image' : 'file';
+        attachments.push({ kind, name: f.name, url });
+      }
+      const dn = this.auth.displayName() ?? uid;
+      const av = this.auth.avatarUrl();
+      await setDoc(msgRef, {
+        authorUserId: uid,
+        authorDisplayName: dn,
+        authorAvatarUrl: av ?? null,
+        text,
+        createdAt: serverTimestamp(),
+        attachments,
+      });
+      this.chatInput = '';
+      this.chatAttachments = [];
+    } catch (e) {
+      this.chatSendError = e instanceof Error ? e.message : '送信に失敗しました';
+    } finally {
+      this.sendingChat = false;
+    }
+  }
+
+  onChatKeydown(ev: KeyboardEvent): void {
+    if (ev.key !== 'Enter' || ev.shiftKey || ev.isComposing) {
+      return;
+    }
+    ev.preventDefault();
+    void this.sendChat();
+  }
+
   /** 一覧 or カレンダーへ（開いた経路に応じてクエリを付与） */
   navigateBackToTaskShell(): void {
     const q = this.route.snapshot.queryParamMap;
     const from = q.get(TASK_RETURN_QUERY.from);
     const cal = q.get(TASK_RETURN_QUERY.cal);
+    const taskView =
+      from === 'calendar' ? 'calendar' : from === 'kanban' ? 'kanban' : 'list';
     const queryParams: Record<string, string | null> = {
-      [TASK_RETURN_QUERY.taskView]: from === 'calendar' ? 'calendar' : 'list',
+      [TASK_RETURN_QUERY.taskView]: taskView,
       [TASK_RETURN_QUERY.cal]:
         from === 'calendar' ? (cal === 'week' ? 'week' : 'month') : null,
     };
@@ -232,7 +447,13 @@ export class TaskDetail implements OnInit, OnDestroy {
 
   backButtonLabel(): string {
     const from = this.route.snapshot.queryParamMap.get(TASK_RETURN_QUERY.from);
-    return from === 'calendar' ? '← カレンダーへ戻る' : '← 一覧へ戻る';
+    if (from === 'calendar') {
+      return '← カレンダーへ戻る';
+    }
+    if (from === 'kanban') {
+      return '← カンバンへ戻る';
+    }
+    return '← 一覧へ戻る';
   }
 
   async deleteTask(): Promise<void> {
@@ -263,5 +484,6 @@ export class TaskDetail implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.membersSub?.unsubscribe();
+    this.messagesSub?.unsubscribe();
   }
 }

@@ -118,34 +118,70 @@
   gap: 2px;
 }
 
+/* リスト行（task-list-item）と同じ：左ラベル帯 + color-mix 背景 */
 .task-cal-chip {
+  --label-color: #e0e0e0;
   display: flex;
+  align-items: stretch;
   width: 100%;
   max-width: 100%;
-  align-items: center;
-  min-height: 22px;
-  padding: 2px 4px 2px 6px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-left-width: 4px;
+  min-height: 28px;
+  padding: 0;
+  margin: 0;
+  border: none;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.95);
+  overflow: hidden;
   cursor: pointer;
   text-align: left;
   box-sizing: border-box;
+  background: transparent;
+  font: inherit;
 }
 
-.task-cal-chip:hover {
-  background: rgba(25, 118, 210, 0.06);
+.task-cal-chip:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
 }
 
-/* リストの完了行（.task-main.done）と同様のグレー背景 */
-.task-cal-chip-done {
+.task-cal-label-strip {
+  flex: 0 0 6px;
+  width: 6px;
+  min-height: 100%;
+  align-self: stretch;
+}
+
+.task-cal-chip-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 0 4px 4px 0;
+  transition: background-color 0.15s ease;
+}
+
+.task-cal-chip-main:not(.done) {
+  background: color-mix(in srgb, var(--label-color) 40%, #fafafa);
+}
+
+.task-cal-chip:hover .task-cal-chip-main:not(.done) {
+  background: color-mix(in srgb, var(--label-color) 30%, #fafafa);
+}
+
+.task-cal-chip-main.done {
   background-color: #bdbdbd;
-  opacity: 1;
 }
 
-.task-cal-chip-done:hover {
-  background-color: #a8a8a8;
+.task-cal-chip:hover .task-cal-chip-main.done {
+  background-color: #b8b8b8;
+}
+
+.task-cal-chip-main.in-progress:not(.done) {
+  background: color-mix(in srgb, var(--label-color) 100%, #fafafa);
+}
+
+.task-cal-chip:hover .task-cal-chip-main.in-progress:not(.done) {
+  background: color-mix(in srgb, var(--label-color) 90%, #fafafa);
 }
 
 .task-cal-title-done {
@@ -167,6 +203,10 @@
   font-size: 12px;
   line-height: 1.35;
   color: rgba(0, 0, 0, 0.88);
+}
+
+.task-cal-chip-main .task-cal-chip-title {
+  width: 100%;
 }
 
 .task-cal-overflow {

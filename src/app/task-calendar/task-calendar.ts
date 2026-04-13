@@ -220,4 +220,10 @@ export class TaskCalendar {
   isToday(d: Date): boolean {
     return sameCalendarDay(d, new Date());
   }
+
+  /** リスト行の `labelStripColor` と同じ（ラベル色の帯・背景トーン用） */
+  labelColor(task: Task): string {
+    const c = task.label?.trim();
+    return c || '#e0e0e0';
+  }
 }

@@ -9,10 +9,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { TaskForm } from '../task-form/task-form';
 import { Task } from '../../models/task';
 import { TaskScope } from '../task-scope';
+import type { ProjectMemberRow } from '../../models/project-member';
 
 export interface TaskFormDialogData {
   taskScope: TaskScope;
-  projectMembers: { userId: string; displayName: string }[];
+  projectMembers: ProjectMemberRow[];
 }
 
 @Component({
