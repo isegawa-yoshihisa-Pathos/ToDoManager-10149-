@@ -26,14 +26,6 @@
     >
       タスクを追加+
     </button>
-    <button
-      type="button"
-      class="task-report-btn"
-      (click)="openReportPage()"
-      aria-label="レポート"
-    >
-      レポート
-    </button>
     <div class="filter-bar">
       <span class="filter-label">絞り込み</span>
       <mat-form-field appearance="outline" class="filter-field filter-select-multi filter-colors-field" subscriptSizing="dynamic">
@@ -136,6 +128,14 @@
   </div>
 
   <div class="task-toolbar-row task-toolbar-row-sort">
+    <button
+      type="button"
+      class="task-report-btn"
+      (click)="openReportPage()"
+      aria-label="レポート"
+    >
+      レポート
+    </button>
     <div class="sort-bar">
       <span class="sort-label">並び替え</span>
       <mat-form-field appearance="outline" class="filter-field sort-select" subscriptSizing="dynamic">

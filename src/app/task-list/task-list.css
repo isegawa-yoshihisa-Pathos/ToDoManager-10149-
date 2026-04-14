@@ -35,6 +35,22 @@
   min-width: 0;
 }
 
+.task-toolbar-row-sort {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-toolbar-row-sort .task-report-btn {
+  flex: 0 0 auto;
+}
+
+.task-toolbar-row-sort .sort-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  justify-content: flex-end;
+}
+
 .task-toolbar-row-view {
   align-items: center;
 }
