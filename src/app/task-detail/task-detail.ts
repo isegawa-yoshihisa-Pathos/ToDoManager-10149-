@@ -35,7 +35,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatIconModule } from '@angular/material/icon';
 import { DEFAULT_TASK_LABEL_COLOR, TASK_COLOR_CHART } from '../task-colors';
 import {
@@ -53,6 +52,15 @@ import {
 import type { TaskMessageAttachment } from '../../models/task-message';
 import type { ProjectMemberRow } from '../../models/project-member';
 import { UserAvatar } from '../user-avatar/user-avatar';
+import { MatRadioModule } from '@angular/material/radio';
+import {
+  defaultScheduleDatetimeLocalNow,
+  defaultScheduleDatetimeLocalOneHourLater,
+  fromDatetimeLocalString,
+  taskScheduleModeFromFields,
+  timestampLikeToDate,
+  toDatetimeLocalString,
+} from '../task-schedule';
 
 const MAX_CHAT_FILE_BYTES = 8 * 1024 * 1024;
 
@@ -66,8 +74,8 @@ const MAX_CHAT_FILE_BYTES = 8 * 1024 * 1024;
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatDatepickerModule,
     MatIconModule,
+    MatRadioModule,
     UserAvatar,
   ],
   templateUrl: './task-detail.html',
@@ -99,7 +107,11 @@ export class TaskDetail implements OnInit, OnDestroy {
   editTitle = '';
   editLabel: string = DEFAULT_TASK_LABEL_COLOR;
   editPriority = DEFAULT_TASK_PRIORITY;
-  editDeadline: Date | null = null;
+  /** none | deadline | window — 締切と開始終了は同時に持たない */
+  scheduleEditMode: 'none' | 'deadline' | 'window' = 'none';
+  editDeadlineStr = '';
+  editStartStr = '';
+  editEndStr = '';
   editAssignee = '';
   editStatus: TaskStatus = 'todo';
 
@@ -280,15 +292,26 @@ export class TaskDetail implements OnInit, OnDestroy {
     const lab = data['label'];
     this.editLabel =
       typeof lab === 'string' && lab.trim() !== '' ? lab : DEFAULT_TASK_LABEL_COLOR;
-    const raw = data['deadline'];
-    this.editDeadline =
-      raw instanceof Timestamp
-        ? raw.toDate()
-        : raw instanceof Date
-          ? raw
-          : raw
-            ? new Date(raw as string | number)
-            : null;
+    const deadline = timestampLikeToDate(data['deadline']);
+    const startAt = timestampLikeToDate(data['startAt']);
+    const endAt = timestampLikeToDate(data['endAt']);
+    const mode = taskScheduleModeFromFields(deadline, startAt, endAt);
+    if (mode === 'window' && startAt && endAt) {
+      this.scheduleEditMode = 'window';
+      this.editStartStr = toDatetimeLocalString(startAt);
+      this.editEndStr = toDatetimeLocalString(endAt);
+      this.editDeadlineStr = '';
+    } else if (mode === 'deadline' && deadline) {
+      this.scheduleEditMode = 'deadline';
+      this.editDeadlineStr = toDatetimeLocalString(deadline);
+      this.editStartStr = '';
+      this.editEndStr = '';
+    } else {
+      this.scheduleEditMode = 'none';
+      this.editDeadlineStr = '';
+      this.editStartStr = '';
+      this.editEndStr = '';
+    }
     const desc = typeof data['description'] === 'string' ? data['description'] : '';
     this.legacyDescription = desc.trim() !== '' ? desc : '';
     this.editPriority = clampTaskPriority(data['priority']);
@@ -298,6 +321,21 @@ export class TaskDetail implements OnInit, OnDestroy {
     this.editStatus = normalizeTaskStatusFromDoc(data);
     this.subscribeMessages(ref);
     this.loading = false;
+  }
+
+  /** 空欄のときだけ現在／1時間後を入れる */
+  onScheduleEditModeChange(mode: string): void {
+    const m = mode as 'none' | 'deadline' | 'window';
+    if (m === 'deadline' && !this.editDeadlineStr.trim()) {
+      this.editDeadlineStr = defaultScheduleDatetimeLocalNow();
+    } else if (m === 'window') {
+      if (!this.editStartStr.trim()) {
+        this.editStartStr = defaultScheduleDatetimeLocalNow();
+      }
+      if (!this.editEndStr.trim()) {
+        this.editEndStr = defaultScheduleDatetimeLocalOneHourLater();
+      }
+    }
   }
 
   async save(): Promise<void> {
@@ -312,10 +350,34 @@ export class TaskDetail implements OnInit, OnDestroy {
       priority: clampTaskPriority(this.editPriority),
       ...firestoreStatusFields(this.editStatus),
     };
-    if (this.editDeadline) {
-      payload['deadline'] = Timestamp.fromDate(new Date(this.editDeadline));
+    if (this.scheduleEditMode === 'deadline') {
+      const d = fromDatetimeLocalString(this.editDeadlineStr);
+      if (d) {
+        payload['deadline'] = Timestamp.fromDate(d);
+      } else {
+        payload['deadline'] = deleteField();
+      }
+      payload['startAt'] = deleteField();
+      payload['endAt'] = deleteField();
+    } else if (this.scheduleEditMode === 'window') {
+      const s = fromDatetimeLocalString(this.editStartStr);
+      const e = fromDatetimeLocalString(this.editEndStr);
+      if (s && e) {
+        if (e.getTime() < s.getTime()) {
+          this.saveError = '終了日時は開始日時以降にしてください';
+          return;
+        }
+        payload['startAt'] = Timestamp.fromDate(s);
+        payload['endAt'] = Timestamp.fromDate(e);
+      } else {
+        payload['startAt'] = deleteField();
+        payload['endAt'] = deleteField();
+      }
+      payload['deadline'] = deleteField();
     } else {
       payload['deadline'] = deleteField();
+      payload['startAt'] = deleteField();
+      payload['endAt'] = deleteField();
     }
     if (this.scopeParam !== 'private' && !this.scopeParam.startsWith('pl-')) {
       const a =
@@ -433,10 +495,17 @@ export class TaskDetail implements OnInit, OnDestroy {
     const cal = q.get(TASK_RETURN_QUERY.cal);
     const taskView =
       from === 'calendar' ? 'calendar' : from === 'kanban' ? 'kanban' : 'list';
+    const calOut =
+      from === 'calendar'
+        ? cal === 'week'
+          ? 'week'
+          : cal === 'day'
+            ? 'day'
+            : 'month'
+        : null;
     const queryParams: Record<string, string | null> = {
       [TASK_RETURN_QUERY.taskView]: taskView,
-      [TASK_RETURN_QUERY.cal]:
-        from === 'calendar' ? (cal === 'week' ? 'week' : 'month') : null,
+      [TASK_RETURN_QUERY.cal]: calOut,
     };
     void this.router.navigate(['/user-window'], { queryParams });
   }

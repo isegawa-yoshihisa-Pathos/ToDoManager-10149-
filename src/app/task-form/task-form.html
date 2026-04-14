@@ -37,16 +37,43 @@
         <mat-option *ngFor="let p of priorityOptions" [value]="p.value">{{ p.label }}</mat-option>
       </mat-select>
     </mat-form-field>
-    <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
-      <mat-label>期日</mat-label>
-      <input matInput [matDatepicker]="dp" [(ngModel)]="newTask.deadline" name="deadline" />
-      <mat-datepicker-toggle matIconSuffix [for]="dp"></mat-datepicker-toggle>
-      <mat-datepicker #dp></mat-datepicker>
-    </mat-form-field>
     <button mat-flat-button color="primary" type="button" (click)="submit()" [disabled]="title.invalid">
       追加
     </button>
   </div>
+  <div class="form-row form-row-schedule">
+    <span class="schedule-label">予定</span>
+    <mat-radio-group
+      [(ngModel)]="scheduleMode"
+      name="taskScheduleMode"
+      class="schedule-rg"
+      (ngModelChange)="onScheduleModeChange($event)"
+    >
+      <mat-radio-button value="none">なし</mat-radio-button>
+      <mat-radio-button value="deadline">締切日時</mat-radio-button>
+      <mat-radio-button value="window">開始・終了</mat-radio-button>
+    </mat-radio-group>
+  </div>
+  @if (scheduleMode === 'deadline') {
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="datetime-field" subscriptSizing="dynamic">
+        <mat-label>締切日時</mat-label>
+        <input matInput type="datetime-local" [(ngModel)]="deadlineStr" name="deadlineStr" />
+      </mat-form-field>
+    </div>
+  }
+  @if (scheduleMode === 'window') {
+    <div class="form-row form-row-window">
+      <mat-form-field appearance="outline" class="datetime-field" subscriptSizing="dynamic">
+        <mat-label>開始</mat-label>
+        <input matInput type="datetime-local" [(ngModel)]="startStr" name="startStr" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="datetime-field" subscriptSizing="dynamic">
+        <mat-label>終了</mat-label>
+        <input matInput type="datetime-local" [(ngModel)]="endStr" name="endStr" />
+      </mat-form-field>
+    </div>
+  }
   <div class="palette" role="listbox" aria-label="ラベル色">
     <button
       type="button"

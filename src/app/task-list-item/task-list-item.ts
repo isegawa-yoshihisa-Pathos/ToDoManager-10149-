@@ -21,6 +21,7 @@ import {
   TASK_TITLE_DISPLAY_MAX_CHARS,
 } from '../display-ellipsis';
 import { saveTaskShellScrollPosition } from '../task-shell-scroll';
+import { isTaskOverdue, taskScheduleMode } from '../task-schedule';
 import { UserAvatar } from '../user-avatar/user-avatar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { ProjectMemberRow } from '../../models/project-member';
@@ -43,7 +44,7 @@ export class TaskListItem implements OnInit {
     label: '',
     status: 'todo',
     priority: 3,
-    deadline: new Date(),
+    deadline: null,
   };
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
   /** プロジェクト時、担当表示名の解決用 */
@@ -130,14 +131,25 @@ export class TaskListItem implements OnInit {
     this.persistStatus(nextTaskStatus(this.task.status));
   }
 
-  isOverdue(task: Task) {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    return (
-      task.status !== 'done' &&
-      task.deadline &&
-      task.deadline.getTime() < start.getTime()
-    );
+  isOverdue(task: Task): boolean {
+    return isTaskOverdue(task);
+  }
+
+  /** 一覧センターに表示する予定テキスト（なければ null） */
+  scheduleTagText(task: Task): string | null {
+    const m = taskScheduleMode(task);
+    if (m === 'deadline' && task.deadline) {
+      const d = task.deadline;
+      return `締切 ${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+    if (m === 'window' && task.startAt && task.endAt) {
+      const s = new Date(task.startAt);
+      const e = new Date(task.endAt);
+      const fd = (x: Date) =>
+        `${x.getFullYear()}/${String(x.getMonth() + 1).padStart(2, '0')}/${String(x.getDate()).padStart(2, '0')} ${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
+      return `${fd(s)} 〜 ${fd(e)}`;
+    }
+    return null;
   }
 
   openDetail(ev: Event): void {

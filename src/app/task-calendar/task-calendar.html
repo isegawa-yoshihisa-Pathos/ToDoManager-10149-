@@ -4,10 +4,14 @@
       <button mat-stroked-button type="button" (click)="goPrevMonth()" aria-label="前の月">‹</button>
       <span class="task-cal-title">{{ monthTitle }}</span>
       <button mat-stroked-button type="button" (click)="goNextMonth()" aria-label="次の月">›</button>
-    } @else {
+    } @else if (granularity === 'week') {
       <button mat-stroked-button type="button" (click)="goPrevWeek()" aria-label="前の週">‹</button>
       <span class="task-cal-title">{{ weekTitleRange }}</span>
       <button mat-stroked-button type="button" (click)="goNextWeek()" aria-label="次の週">›</button>
+    } @else {
+      <button mat-stroked-button type="button" (click)="goPrevDay()" aria-label="前の日">‹</button>
+      <span class="task-cal-title">{{ dayTitle }}</span>
+      <button mat-stroked-button type="button" (click)="goNextDay()" aria-label="次の日">›</button>
     }
     <button mat-button type="button" (click)="goToday()">今日</button>
   </div>
@@ -23,9 +27,15 @@
         <div class="task-cal-week-row">
           @for (cell of week; track cell.date.getTime()) {
             <div
-              class="task-cal-day-cell"
+              class="task-cal-day-cell task-cal-day-cell--month-pick"
               [class.other-month]="!cell.inMonth"
               [class.is-today]="isToday(cell.date)"
+              role="button"
+              tabindex="0"
+              [attr.aria-label]="monthDayOpenAriaLabel(cell.date)"
+              (click)="pickMonthDay(cell.date)"
+              (keydown.enter)="pickMonthDay(cell.date)"
+              (keydown.space)="$event.preventDefault(); pickMonthDay(cell.date)"
             >
               <div class="task-cal-day-num">{{ cell.date.getDate() }}</div>
               <div class="task-cal-day-tasks">
@@ -34,7 +44,7 @@
                     type="button"
                     class="task-cal-chip"
                     [style.--label-color]="labelColor(task)"
-                    (click)="openTask(task)"
+                    (click)="$event.stopPropagation(); openTask(task)"
                   >
                     <span
                       class="task-cal-label-strip"
@@ -62,7 +72,7 @@
         </div>
       }
     </div>
-  } @else {
+  } @else if (granularity === 'week') {
     <div class="task-cal-week-wrap">
       @for (col of weekDays; track col.date.getTime()) {
         <div class="task-cal-week-col" [class.is-today]="isToday(col.date)">
@@ -102,11 +112,99 @@
         </div>
       }
     </div>
+  } @else {
+    <div class="task-cal-day-wrap" [class.is-today]="isToday(viewDate)">
+      @if (dayDeadlines.length > 0) {
+        <div class="task-cal-day-deadlines">
+          <h3 class="task-cal-day-deadlines-title">締切</h3>
+          <div class="task-cal-day-deadlines-list">
+            @for (d of dayDeadlines; track d.task.id ?? d.task.title + d.at.getTime()) {
+              <button
+                type="button"
+                class="task-cal-chip task-cal-chip-wide task-cal-day-deadline-chip"
+                [style.--label-color]="labelColor(d.task)"
+                (click)="openTask(d.task)"
+              >
+                <span
+                  class="task-cal-label-strip"
+                  [style.background-color]="labelColor(d.task)"
+                  aria-hidden="true"
+                ></span>
+                <span
+                  class="task-cal-chip-main"
+                  [class.done]="d.task.status === 'done'"
+                  [class.in-progress]="d.task.status === 'in_progress'"
+                >
+                  <span class="task-cal-day-deadline-time">{{ d.timeLabel }}</span>
+                  <span
+                    class="task-cal-chip-title"
+                    [class.task-cal-title-done]="d.task.status === 'done'"
+                    >{{ d.task.title }}</span>
+                </span>
+              </button>
+            }
+          </div>
+        </div>
+      }
+      <div
+        class="task-cal-day-timeline-scroll"
+        [style.--cal-slot.px]="dayTimelineSlotPx"
+      >
+        <div class="task-cal-day-timeline-inner">
+          <div class="task-cal-day-hours" aria-hidden="true">
+            @for (h of dayTimelineHourLabels; track h) {
+              <div class="task-cal-day-hour-label" [style.height.px]="dayTimelineSlotPx">
+                {{ h }}
+              </div>
+            }
+          </div>
+          <div
+            class="task-cal-day-grid-layer"
+            [style.height.px]="dayTimelineGridHeightPx"
+          >
+            @if (dayNowLineTopPx !== null) {
+              <div class="task-cal-day-now-line" [style.top.px]="dayNowLineTopPx"></div>
+            }
+            <div class="task-cal-day-blocks-track">
+            @for (b of dayTimeline.blocks; track b.task.id ?? b.task.title + b.topPx + b.laneIndex) {
+              <button
+                type="button"
+                class="task-cal-day-block"
+                [style.--label-color]="labelColor(b.task)"
+                [style.top.px]="b.topPx"
+                [style.height.px]="b.heightPx"
+                [style.left.%]="(b.laneIndex / b.laneCount) * 100"
+                [style.width.%]="100 / b.laneCount"
+                (click)="openTask(b.task)"
+              >
+                <span
+                  class="task-cal-label-strip"
+                  [style.background-color]="labelColor(b.task)"
+                  aria-hidden="true"
+                ></span>
+                <span
+                  class="task-cal-day-block-main"
+                  [class.done]="b.task.status === 'done'"
+                  [class.in-progress]="b.task.status === 'in_progress'"
+                >
+                  <span class="task-cal-day-block-meta">{{ b.rangeLabel }}</span>
+                  <span
+                    class="task-cal-day-block-title"
+                    [class.task-cal-title-done]="b.task.status === 'done'"
+                    >{{ b.task.title }}</span>
+                </span>
+              </button>
+            }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   }
 
   @if (unscheduledTasks.length > 0) {
     <div class="task-cal-unscheduled">
-      <h3 class="task-cal-unscheduled-title">期日なし</h3>
+      <h3 class="task-cal-unscheduled-title">締切・予定なし</h3>
       <div class="task-cal-unscheduled-list">
         @for (task of unscheduledTasks; track task.id ?? task.title) {
           <button

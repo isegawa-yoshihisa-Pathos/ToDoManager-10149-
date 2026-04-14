@@ -66,11 +66,11 @@
     </div>
 
     <div class="center">
-      @if (task.deadline && task.status !== 'done') {
+      @if (task.status !== 'done' && scheduleTagText(task); as sched) {
         <span
           class="deadline-tag"
           [class.deadline-overdue]="isOverdue(task)"
-        >期日：{{ task.deadline | date: 'yyyy/MM/dd' }}</span>
+        >{{ sched }}</span>
       }
     </div>
 

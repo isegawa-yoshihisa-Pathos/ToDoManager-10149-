@@ -56,11 +56,12 @@ import { AuthService } from '../auth.service';
 import { TaskScope, taskDetailScopeParam } from '../task-scope';
 import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 import type { ProjectMemberRow } from '../../models/project-member';
-import { TaskCalendar } from '../task-calendar/task-calendar';
+import { TaskCalendar, type TaskCalendarGranularity } from '../task-calendar/task-calendar';
 import { UserAvatar } from '../user-avatar/user-avatar';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatMenuModule } from '@angular/material/menu';
 import { TASK_RETURN_QUERY } from '../task-return-query';
+import { timestampLikeToDate } from '../task-schedule';
 import {
   DEFAULT_KANBAN_COLUMNS,
   type KanbanColumn,
@@ -101,8 +102,10 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   /** リスト表示 / カレンダー / カンバン */
   viewMode: 'list' | 'calendar' | 'kanban' = 'list';
-  /** カレンダー時の月／週 */
-  calendarGranularity: 'month' | 'week' = 'month';
+  /** カレンダー時の月／週／日 */
+  calendarGranularity: TaskCalendarGranularity = 'month';
+  /** カレンダーの基準日（月の表示月・週の週・日のその日） */
+  calendarViewDate = new Date();
 
   tasks: Task[] = [];
 
@@ -120,7 +123,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   readonly sortFieldOptions: { value: TaskSortField; label: string }[] = [
     { value: 'color', label: '色' },
-    { value: 'deadline', label: '期日' },
+    { value: 'deadline', label: '締切日時' },
     { value: 'priority', label: '優先度' },
     { value: 'status', label: '進捗' },
   ];
@@ -129,13 +132,13 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   readonly statusFilterOptions = TASK_STATUS_OPTIONS;
 
   readonly dueDateFilterOptions: { value: DueDateFilter; label: string }[] = [
-    { value: 'all', label: '期日: すべて' },
-    { value: 'overdue', label: '期限切れ' },
+    { value: 'all', label: '締切/予定: すべて' },
+    { value: 'overdue', label: '期限切れ（未完了）' },
     { value: 'today', label: '今日が期限' },
     { value: 'within_7', label: '7日以内' },
     { value: 'within_30', label: '30日以内' },
     { value: 'beyond_30', label: '31日以降' },
-    { value: 'no_deadline', label: '期日なし' },
+    { value: 'no_deadline', label: '締切・予定なし' },
   ];
 
   readonly priorityFilterValues = [5, 4, 3, 2, 1] as const;
@@ -223,8 +226,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         const tv = qp.get(TASK_RETURN_QUERY.taskView);
         if (tv === 'calendar') {
           this.viewMode = 'calendar';
-          this.calendarGranularity =
-            qp.get(TASK_RETURN_QUERY.cal) === 'week' ? 'week' : 'month';
+          {
+            const cal = qp.get(TASK_RETURN_QUERY.cal);
+            this.calendarGranularity =
+              cal === 'week' ? 'week' : cal === 'day' ? 'day' : 'month';
+          }
         } else if (tv === 'kanban') {
           this.viewMode = 'kanban';
         } else if (tv === 'list') {
@@ -234,6 +240,18 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     this.subscribeTasks();
     this.subscribeProjectMembers();
     void this.subscribeKanbanBoard();
+  }
+
+  onCalendarViewDateChange(d: Date): void {
+    this.calendarViewDate = d;
+    this.onTaskListViewUiChange();
+  }
+
+  /** 月表示の日付クリック → その日の日表示 */
+  onPickCalendarDayFromMonth(d: Date): void {
+    this.calendarViewDate = d;
+    this.calendarGranularity = 'day';
+    this.onTaskListViewUiChange();
   }
 
   /** ユーザーがリスト/カレンダー/カンバンを切り替えたとき URL を同期（詳細からの戻りと一致させる） */
@@ -311,20 +329,14 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       .pipe(
         map((rows) =>
           (rows as Record<string, unknown>[]).map((data) => {
-            const raw = data['deadline'];
             const status = normalizeTaskStatusFromDoc(data as Record<string, unknown>);
             const label =
               typeof data['label'] === 'string' && data['label'].trim() !== ''
                 ? data['label']
                 : '';
-            const deadline =
-              raw instanceof Timestamp
-                ? raw.toDate()
-                : raw instanceof Date
-                  ? raw
-                  : raw
-                    ? new Date(raw as string | number)
-                    : null;
+            const deadline = timestampLikeToDate(data['deadline']);
+            const startAt = timestampLikeToDate(data['startAt']);
+            const endAt = timestampLikeToDate(data['endAt']);
             const description =
               typeof data['description'] === 'string' ? data['description'] : '';
             const priority = clampTaskPriority(data['priority']);
@@ -344,6 +356,8 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
               status,
               label,
               deadline,
+              startAt,
+              endAt,
               description,
               priority,
               assignee,
@@ -369,9 +383,21 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       label: task.label,
       ...firestoreStatusFields(task.status),
       priority: task.priority,
-      deadline: task.deadline ? Timestamp.fromDate(new Date(task.deadline)) : null,
       description: task.description ?? '',
     };
+    if (task.deadline) {
+      payload['deadline'] = Timestamp.fromDate(new Date(task.deadline));
+      payload['startAt'] = null;
+      payload['endAt'] = null;
+    } else if (task.startAt && task.endAt) {
+      payload['deadline'] = null;
+      payload['startAt'] = Timestamp.fromDate(new Date(task.startAt));
+      payload['endAt'] = Timestamp.fromDate(new Date(task.endAt));
+    } else {
+      payload['deadline'] = null;
+      payload['startAt'] = null;
+      payload['endAt'] = null;
+    }
     if (this.taskScope.kind === 'project') {
       const a = typeof task.assignee === 'string' ? task.assignee.trim() : '';
       payload['assignee'] = a || null;

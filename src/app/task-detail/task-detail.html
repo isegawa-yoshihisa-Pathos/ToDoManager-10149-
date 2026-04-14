@@ -74,13 +74,43 @@
     </div>
 
     <div class="field">
-      <mat-form-field appearance="outline" class="date-input" subscriptSizing="dynamic">
-        <mat-label>期日</mat-label>
-        <input matInput [matDatepicker]="dp2" [(ngModel)]="editDeadline" name="deadline" />
-        <mat-datepicker-toggle matIconSuffix [for]="dp2"></mat-datepicker-toggle>
-        <mat-datepicker #dp2></mat-datepicker>
-      </mat-form-field>
+      <span class="field-label">予定</span>
+      <mat-radio-group
+        [(ngModel)]="scheduleEditMode"
+        name="scheduleEditMode"
+        class="schedule-mode-group"
+        (ngModelChange)="onScheduleEditModeChange($event)"
+      >
+        <mat-radio-button value="none">なし</mat-radio-button>
+        <mat-radio-button value="deadline">締切日時</mat-radio-button>
+        <mat-radio-button value="window">開始・終了</mat-radio-button>
+      </mat-radio-group>
     </div>
+    @if (scheduleEditMode === 'deadline') {
+      <div class="field">
+        <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+          <mat-label>締切日時</mat-label>
+          <input
+            matInput
+            type="datetime-local"
+            [(ngModel)]="editDeadlineStr"
+            name="deadlineDt"
+          />
+        </mat-form-field>
+      </div>
+    }
+    @if (scheduleEditMode === 'window') {
+      <div class="field schedule-window-row">
+        <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+          <mat-label>開始</mat-label>
+          <input matInput type="datetime-local" [(ngModel)]="editStartStr" name="startDt" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+          <mat-label>終了</mat-label>
+          <input matInput type="datetime-local" [(ngModel)]="editEndStr" name="endDt" />
+        </mat-form-field>
+      </div>
+    }
 
     <div class="field chat-field">
       <label class="field-label">チャット</label>
@@ -113,7 +143,7 @@
               @if (m.text) {
                 <div class="chat-text">{{ m.text }}</div>
               }
-              @if (m.attachments?.length) {
+              @if (m.attachments.length) {
                 <div class="chat-attachments">
                   @for (a of m.attachments; track a.url) {
                     @if (a.kind === 'image') {

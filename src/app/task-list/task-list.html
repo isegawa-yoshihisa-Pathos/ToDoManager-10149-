@@ -97,7 +97,7 @@
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline" class="filter-field filter-due" subscriptSizing="dynamic">
-          <mat-label>期日</mat-label>
+          <mat-label>締切/予定</mat-label>
           <mat-select [(ngModel)]="filterState.dueDate" name="filterDue">
             <mat-option *ngFor="let o of dueDateFilterOptions" [value]="o.value">{{ o.label }}</mat-option>
           </mat-select>
@@ -162,6 +162,7 @@
       >
         <mat-button-toggle value="month">月</mat-button-toggle>
         <mat-button-toggle value="week">週</mat-button-toggle>
+        <mat-button-toggle value="day">日</mat-button-toggle>
       </mat-button-toggle-group>
     }
   </div>
@@ -305,6 +306,9 @@
       [tasks]="displayTasks"
       [taskScope]="taskScope"
       [granularity]="calendarGranularity"
+      [viewDate]="calendarViewDate"
+      (viewDateChange)="onCalendarViewDateChange($event)"
+      (pickCalendarDay)="onPickCalendarDayFromMonth($event)"
     ></app-task-calendar>
   </div>
 }

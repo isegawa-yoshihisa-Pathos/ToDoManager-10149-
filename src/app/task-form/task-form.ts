@@ -13,10 +13,15 @@ import { FormsModule } from '@angular/forms';
 import { Task } from '../../models/task';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
+import { MatRadioModule } from '@angular/material/radio';
+import {
+  defaultScheduleDatetimeLocalNow,
+  defaultScheduleDatetimeLocalOneHourLater,
+  fromDatetimeLocalString,
+} from '../task-schedule';
 import { DEFAULT_TASK_LABEL_COLOR, TASK_COLOR_CHART } from '../task-colors';
 import { DEFAULT_TASK_PRIORITY, TASK_PRIORITY_OPTIONS } from '../task-priority';
 import { TaskScope } from '../task-scope';
@@ -32,10 +37,10 @@ import { UserAvatar } from '../user-avatar/user-avatar';
     FormsModule,
     MatFormFieldModule,
     MatInputModule,
-    MatDatepickerModule,
     MatButtonModule,
     MatSelectModule,
     MatIconModule,
+    MatRadioModule,
     UserAvatar,
   ],
   templateUrl: './task-form.html',
@@ -59,6 +64,12 @@ export class TaskForm implements OnInit, OnChanges {
 
   newTask: Task = this.emptyTask();
 
+  /** 締切と開始終了は同時に持たない */
+  scheduleMode: 'none' | 'deadline' | 'window' = 'none';
+  deadlineStr = '';
+  startStr = '';
+  endStr = '';
+
   private emptyTask(): Task {
     return {
       title: '',
@@ -66,6 +77,8 @@ export class TaskForm implements OnInit, OnChanges {
       status: 'todo',
       priority: DEFAULT_TASK_PRIORITY,
       deadline: null,
+      startAt: null,
+      endAt: null,
       description: '',
       assignee: DEFAULT_TASK_ASSIGNEE(this.auth.userId()) ?? '',
     };
@@ -80,13 +93,47 @@ export class TaskForm implements OnInit, OnChanges {
     }
   }
 
+  /** 空欄のときだけ現在／1時間後を入れる（手入力を上書きしない） */
+  onScheduleModeChange(mode: string): void {
+    const m = mode as 'none' | 'deadline' | 'window';
+    if (m === 'deadline' && !this.deadlineStr.trim()) {
+      this.deadlineStr = defaultScheduleDatetimeLocalNow();
+    } else if (m === 'window') {
+      if (!this.startStr.trim()) {
+        this.startStr = defaultScheduleDatetimeLocalNow();
+      }
+      if (!this.endStr.trim()) {
+        this.endStr = defaultScheduleDatetimeLocalOneHourLater();
+      }
+    }
+  }
+
   submit(): void {
+    let deadline: Date | null = null;
+    let startAt: Date | null = null;
+    let endAt: Date | null = null;
+    if (this.scheduleMode === 'deadline') {
+      deadline = fromDatetimeLocalString(this.deadlineStr);
+    } else if (this.scheduleMode === 'window') {
+      startAt = fromDatetimeLocalString(this.startStr);
+      endAt = fromDatetimeLocalString(this.endStr);
+      if (!startAt || !endAt) {
+        alert('開始と終了の日時を両方入力してください');
+        return;
+      }
+      if (endAt.getTime() < startAt.getTime()) {
+        alert('終了は開始以降にしてください');
+        return;
+      }
+    }
     const base: Task = {
       title: this.newTask.title,
       label: this.newTask.label?.trim() || DEFAULT_TASK_LABEL_COLOR,
       status: 'todo',
       priority: this.newTask.priority,
-      deadline: this.newTask.deadline ? new Date(this.newTask.deadline) : null,
+      deadline,
+      startAt,
+      endAt,
       description: '',
     };
     if (this.taskScope.kind === 'project') {
@@ -96,5 +143,9 @@ export class TaskForm implements OnInit, OnChanges {
     }
     this.addTask.emit(base);
     this.newTask = this.emptyTask();
+    this.scheduleMode = 'none';
+    this.deadlineStr = '';
+    this.startStr = '';
+    this.endStr = '';
   }
 }

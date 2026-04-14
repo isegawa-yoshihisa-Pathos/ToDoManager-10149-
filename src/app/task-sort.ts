@@ -2,6 +2,7 @@ import { Task } from '../models/task';
 import type { TaskStatus } from '../models/task-status';
 import { TASK_COLOR_CHART } from './task-colors';
 import { clampTaskPriority } from './task-priority';
+import { effectiveScheduleTimestamp } from './task-schedule';
 
 export type TaskSortField = 'color' | 'deadline' | 'priority' | 'status';
 
@@ -35,12 +36,12 @@ function compareColor(a: Task, b: Task, ascending: boolean): number {
   return ascending ? cmp : -cmp;
 }
 
-/** 期日なしは常に末尾（昇順・降順どちらも） */
+/** 締切日時なしは常に末尾（昇順・降順どちらも） */
 function compareDeadline(a: Task, b: Task, ascending: boolean): number {
-  const ta = a.deadline?.getTime();
-  const tb = b.deadline?.getTime();
-  const aNull = ta === undefined || Number.isNaN(ta as number);
-  const bNull = tb === undefined || Number.isNaN(tb as number);
+  const ta = effectiveScheduleTimestamp(a);
+  const tb = effectiveScheduleTimestamp(b);
+  const aNull = ta === undefined || ta === null || Number.isNaN(ta);
+  const bNull = tb === undefined || tb === null || Number.isNaN(tb);
   if (aNull && bNull) {
     return 0;
   }
@@ -50,7 +51,7 @@ function compareDeadline(a: Task, b: Task, ascending: boolean): number {
   if (bNull) {
     return -1;
   }
-  const cmp = (ta as number) - (tb as number);
+  const cmp = (ta ?? 0) - (tb ?? 0);
   return ascending ? cmp : -cmp;
 }
 

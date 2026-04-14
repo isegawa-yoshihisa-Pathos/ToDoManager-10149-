@@ -37,6 +37,34 @@
   max-width: 280px;
 }
 
+.form-row-schedule {
+  align-items: center;
+  margin-top: 4px;
+}
+
+.schedule-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.65);
+  flex: 0 0 auto;
+}
+
+.schedule-rg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.datetime-field {
+  flex: 1 1 240px;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.form-row-window {
+  align-items: flex-start;
+}
+
 .palette {
   display: flex;
   flex-wrap: wrap;

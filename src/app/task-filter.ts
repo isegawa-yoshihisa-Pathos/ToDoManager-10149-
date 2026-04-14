@@ -2,6 +2,7 @@ import { Task } from '../models/task';
 import type { TaskStatus } from '../models/task-status';
 import { TASK_COLOR_CHART } from './task-colors';
 import { clampTaskPriority } from './task-priority';
+import { filterAnchorDayStart, isTaskOverdue, taskScheduleMode } from './task-schedule';
 
 /** 期日は1つだけ選ぶ（複合は色・優先度・担当と AND） */
 export type DueDateFilter =
@@ -71,17 +72,17 @@ function matchesDueDateFilter(task: Task, filter: DueDateFilter, now: Date): boo
   if (filter === 'all') {
     return true;
   }
-  const dl = task.deadline;
   if (filter === 'no_deadline') {
-    return dl === undefined || dl === null;
+    return taskScheduleMode(task) === 'none';
   }
-  if (!dl) {
+  const anchor = filterAnchorDayStart(task);
+  if (!anchor) {
     return false;
   }
-  const days = calendarDaysFromToday(dl, now);
+  const days = calendarDaysFromToday(anchor, now);
   switch (filter) {
     case 'overdue':
-      return days < 0 && task.status !== 'done';
+      return isTaskOverdue(task, now);
     case 'today':
       return days === 0;
     case 'within_7':
@@ -111,7 +112,7 @@ function matchesAssignee(
 }
 
 /**
- * 色・優先度・進捗・期日・担当（プロジェクト時）で AND 絞り込み。
+ * 色・優先度・進捗・締切/開始ベースの期日・担当（プロジェクト時）で AND 絞り込み。
  */
 export function filterTasks(
   tasks: Task[],
