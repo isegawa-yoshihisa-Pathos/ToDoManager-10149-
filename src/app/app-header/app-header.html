@@ -1,0 +1,34 @@
+<mat-toolbar color="primary" class="app-shell-toolbar">
+  <a class="app-brand" [routerLink]="homeLink()">AngularTodo</a>
+  <span class="toolbar-spacer"></span>
+  @if (auth.userId()) {
+    <div class="account-area">
+      <button
+        matButton="tonal"
+        type="button"
+        class="account-menu-trigger"
+        [matMenuTriggerFor]="accountMenu"
+      >
+        <span class="account-btn-inner">
+          <app-user-avatar
+            [userId]="auth.userId() ?? ''"
+            [displayName]="auth.displayName() ?? ''"
+            [avatarUrl]="auth.avatarUrl()"
+            size="sm"
+          />
+          <span class="account-btn-label">{{ auth.displayName() ?? auth.userId() }}</span>
+        </span>
+      </button>
+      <mat-menu #accountMenu="matMenu">
+        <button mat-menu-item type="button" (click)="changeDisplayName()">ユーザー名を変更</button>
+        <button mat-menu-item type="button" (click)="openAvatarSettings()">プロフィール画像</button>
+        <button mat-menu-item type="button" (click)="signOut()">サインアウト</button>
+      </mat-menu>
+    </div>
+  } @else {
+    <div class="account-area account-area-guest">
+      <a matButton="outlined" routerLink="/login">ログイン</a>
+      <a matButton="tonal" routerLink="/signup">アカウント作成</a>
+    </div>
+  }
+</mat-toolbar>

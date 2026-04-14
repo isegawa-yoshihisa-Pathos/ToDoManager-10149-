@@ -1,26 +1,31 @@
 .task-toolbar-wrap {
   width: 100%;
   margin-bottom: 8px;
-}
-
-.task-toolbar-with-add {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.task-toolbar-primary-col {
-  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  align-items: stretch;
+  gap: 10px;
 }
 
-.view-mode-toggle,
-.calendar-gran-toggle {
-  align-self: flex-start;
+.task-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.task-toolbar-row-filters {
+  align-items: center;
+}
+
+.task-toolbar-row-filters .filter-bar {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.task-toolbar-row-view {
+  align-items: center;
 }
 
 .view-mode-toggle .mat-button-toggle,
@@ -32,7 +37,7 @@
   flex: 0 0 auto;
   width: 150px;
   height: 40px;
-  margin-top: 4px;
+  margin-top: 0;
   border-radius: 8px;
   border: 1px solid #1890ff;
   background: #e6f7ff;
@@ -44,39 +49,18 @@
   padding: 0;
 }
 
+.add-task-plus--primary {
+  width: auto;
+  min-width: 200px;
+  height: auto;
+  min-height: 52px;
+  padding: 0 20px;
+  font-size: 20px;
+  border-radius: 10px;
+}
+
 .add-task-plus:hover {
   background: #bae7ff;
-}
-
-.task-list-hub-btn {
-  width: 150px;
-  box-sizing: border-box;
-  margin-top: 0;
-  border: 1px solid #d9d9d9;
-  background: #fff;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 14px;
-  line-height: 1.2;
-  cursor: pointer;
-  color: rgba(0, 0, 0, 0.85);
-  font-weight: 600;
-}
-
-.task-list-hub-btn:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.task-list-hub-btn.active {
-  border-color: #1890ff;
-  background: #e6f7ff;
-  color: #096dd9;
-}
-
-.filter-sort-stack {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .filter-bar,
@@ -86,7 +70,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px 12px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   width: 100%;
 }
 
@@ -143,11 +127,11 @@
 }
 
 .filter-due {
-  width: 200px;
+  width: 180px;
 }
 
 .filter-assignee {
-  width: 220px;
+  width: 180px;
 }
 
 .filter-assignee-trigger,
@@ -247,7 +231,7 @@ app-task-list-item {
   width: 100%;
 }
 
-/* --- カンバン（横スクロール・表示幅に約5列） --- */
+/* --- カンバン（列が5以下なら画面幅いっぱいに均等分割、6列以上は横スクロール） --- */
 .kanban-board-outer {
   container-type: inline-size;
   container-name: kanban-board;
@@ -267,10 +251,25 @@ app-task-list-item {
   padding-bottom: 4px;
 }
 
-.kanban-column {
+/** リストが5本以下のとき、＋列を除いたエリアを親幅いっぱいに均等配分 */
+.kanban-board-inner--fill {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.kanban-board-inner:not(.kanban-board-inner--fill) .kanban-column:not(.kanban-add-list-column) {
   flex: 0 0 auto;
   width: calc((100cqi - 48px) / 5);
   min-width: 120px;
+}
+
+.kanban-board-inner--fill .kanban-column:not(.kanban-add-list-column) {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+
+.kanban-column {
   display: flex;
   flex-direction: column;
 }
@@ -391,17 +390,17 @@ app-task-list-item {
   width: 56px;
   min-width: 0;
 }
-
-.kanban-add-list-heading {
+/** 他列の「編集」と同じ幅を確保（レイアウトのみ・非表示） */
+.kanban-add-list-edit-placeholder[disabled] {
   visibility: hidden;
-  min-height: 1.2em;
+  pointer-events: none;
 }
 
+/** ＋ボタンをエリア中央に（高さは .kanban-drop-list と同一。ヘッダーは他列と同構造） */
 .kanban-add-list-drop {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
 }
 
 .kanban-add-list-plus {

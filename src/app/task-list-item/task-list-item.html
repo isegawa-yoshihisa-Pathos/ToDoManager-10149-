@@ -30,8 +30,20 @@
     [attr.aria-label]="'進捗を切り替え（現在: ' + statusLabel() + '）: ' + task.title"
   >
     <div class="left">
-      <span class="task-status-badge" title="進捗">{{ statusLabel() }}</span>
-      <span class="priority-mark">{{ priorityLabel() }}</span>
+      <span 
+        class="task-status-badge"
+        [class.done]="task.status === 'done'"
+        [class.in-progress]="task.status === 'in_progress'"
+        title="進捗"
+      >{{ statusLabel() }}</span>
+      <span
+        class="priority-mark"
+        [class.five]="task.priority === 5"
+        [class.four]="task.priority === 4"
+        [class.three]="task.priority === 3"
+        [class.two]="task.priority === 2"
+        [class.one]="task.priority === 1"
+      >{{ priorityLabel() }}</span>
       @if (taskScope.kind === 'project' && task.assignee) {
         <span
           class="assignee-icon-wrap"

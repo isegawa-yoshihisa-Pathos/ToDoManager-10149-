@@ -1,0 +1,54 @@
+.app-shell-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.app-brand {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-brand:hover {
+  text-decoration: underline;
+}
+
+.account-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.account-area-guest {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.account-menu-trigger {
+  font-size: 15px;
+  max-width: min(100%, 320px);
+}
+
+.account-btn-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.account-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -31,10 +31,6 @@
   margin-bottom: 1rem;
 }
 
-.status-field {
-  max-width: 280px;
-}
-
 .field-label {
   display: block;
   font-size: 13px;
@@ -75,6 +71,7 @@
   max-width: 560px;
 }
 
+.status-field,
 .date-input,
 .priority-field,
 .assignee-field {
@@ -243,4 +240,5 @@
 button.detail-delete-btn {
   background-color: #d32f2f !important;
   color: #fff !important;
+  margin-left: 60px;
 }

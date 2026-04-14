@@ -45,7 +45,7 @@
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
@@ -100,13 +100,23 @@
   line-height: 1;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(181, 255, 151, 0.9);
   color: rgba(0, 0, 0, 0.75);
   border: 1px solid rgba(0, 0, 0, 0.12);
   max-width: 4.5em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.task-status-badge.done {
+  background: #bdbdbd;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.task-status-badge.in-progress {
+  background: #ffa66a;
+  color: rgba(0, 0, 0, 0.75);
 }
 
 .assignee-icon-wrap {
@@ -143,11 +153,29 @@
   line-height: 1;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.8);
   color: rgba(0, 0, 0, 0.75);
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+.priority-mark.five {
+  background: #ffdbdb;
+}
+
+.priority-mark.four {
+  background: #ffe8db;
+}
+
+.priority-mark.three {
+  background: #fff5db;
+}
+
+.priority-mark.two {
+  background: #efffdb;
+}
+
+.priority-mark.one {
+  background: #dbfff7;
+}
 .task-title {
   flex: 1 1 auto;
   min-width: 0;
@@ -169,14 +197,16 @@
   padding: 2px 8px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.65);
-  color: rgba(0, 0, 0, 0.75);
+  color: #000000;
   border: 1px solid rgba(0, 0, 0, 0.1);
+  
 }
 
 .deadline-tag.deadline-overdue {
   background: #ff8f7d;
   border-color: #ffccc7;
-  color: #a8071a;
+  color: #000000;
+  border: 1px solid rgba(138, 11, 11, 0.25);
 }
 
 .actions {

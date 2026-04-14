@@ -1,34 +1,8 @@
-<mat-toolbar color="primary" class="app-toolbar">
-  <h1>AngularTodo</h1>
-  <div class="user-window">
-    <button
-      matButton="tonal"
-      type="button"
-      class="account-menu-trigger"
-      [matMenuTriggerFor]="accountMenu"
-    >
-      <span class="account-btn-inner">
-        <app-user-avatar
-          [userId]="auth.userId() ?? ''"
-          [displayName]="auth.displayName() ?? ''"
-          [avatarUrl]="auth.avatarUrl()"
-          size="sm"
-        />
-        <span class="account-btn-label">{{ auth.displayName() ?? auth.userId() }}</span>
-      </span>
-    </button>
-    <mat-menu #accountMenu="matMenu">
-      <button mat-menu-item type="button" (click)="changeDisplayName()">ユーザー名を変更</button>
-      <button mat-menu-item type="button" (click)="openAvatarSettings()">プロフィール画像</button>
-      <button mat-menu-item type="button" (click)="signOut()">サインアウト</button>
-    </mat-menu>
-  </div>
-</mat-toolbar>
-
 <nav class="primary-nav" aria-label="表示の切り替え">
   <div class="nav-cluster nav-cluster-start nav-tabs-host">
     <mat-tab-nav-panel #mainNavPanel class="main-tab-nav-panel">
-      <div class="nav-tabs-scroll-wrap">
+      <div class="nav-tabs-toolbar">
+        <div class="nav-tabs-scroll-wrap">
         <nav
           mat-tab-nav-bar
           [tabPanel]="mainNavPanel"
@@ -100,6 +74,17 @@
           </a>
         }
         </nav>
+        </div>
+        <button
+          type="button"
+          class="nav-add-task-list-btn"
+          [class.active]="isProjectHubActive()"
+          (click)="selectProjectHub()"
+          aria-label="タスクリストを追加"
+          title="タスクリストを追加"
+        >
+          ＋
+        </button>
       </div>
 
       <mat-menu #defaultPrivateMenu="matMenu">
@@ -127,11 +112,7 @@
       <div class="tab-nav-below-content">
         @if (mainTab() === 'private') {
           <section class="section">
-            <app-task-list
-              [taskScope]="privateTaskScope()"
-              [projectHubNavActive]="isProjectHubActive()"
-              (openProjectHub)="selectProjectHub()"
-            ></app-task-list>
+            <app-task-list [taskScope]="privateTaskScope()"></app-task-list>
           </section>
         }
         @if (mainTab() === 'project') {
@@ -143,11 +124,7 @@
               ></app-project-hub>
             } @else {
               <div class="project-detail">
-                <app-task-list
-                  [taskScope]="projectTaskScope()"
-                  [projectHubNavActive]="isProjectHubActive()"
-                  (openProjectHub)="selectProjectHub()"
-                ></app-task-list>
+                <app-task-list [taskScope]="projectTaskScope()"></app-task-list>
               </div>
             }
           </section>

@@ -12,7 +12,6 @@ import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { TaskList } from '../task-list/task-list';
 import { ProjectHub, ProjectOpenedPayload } from '../project-hub/project-hub';
-import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -42,8 +41,7 @@ import {
   tabKeyProject,
 } from '../nav-tab-order';
 import { TabColorPickerDialog } from '../tab-color-picker-dialog/tab-color-picker-dialog';
-import { AvatarSettingsDialog } from '../avatar-settings-dialog/avatar-settings-dialog';
-import { UserAvatar } from '../user-avatar/user-avatar';
+import { SignOutLifecycleService } from '../sign-out-lifecycle.service';
 import { displayEllipsis, isDisplayTruncated } from '../display-ellipsis';
 import { restoreTaskShellScrollPosition } from '../task-shell-scroll';
 
@@ -59,14 +57,12 @@ export type NavEntry =
     CommonModule,
     TaskList,
     ProjectHub,
-    MatToolbarModule,
     MatButtonModule,
     MatMenuModule,
     MatTabsModule,
     MatIconModule,
     MatDialogModule,
     DragDropModule,
-    UserAvatar,
   ],
   templateUrl: './user-window.html',
   styleUrl: './user-window.css',
@@ -79,6 +75,7 @@ export class UserWindow implements OnInit, OnDestroy {
   private readonly firestore = inject(Firestore);
   private readonly privateListService = inject(PrivateListService);
   private readonly dialog = inject(MatDialog);
+  private readonly signOutLifecycle = inject(SignOutLifecycleService);
   private membershipSub?: Subscription;
   private privateListsSub?: Subscription;
   private privateUiSub?: Subscription;
@@ -214,6 +211,10 @@ export class UserWindow implements OnInit, OnDestroy {
       .subscribe(() => {
         restoreTaskShellScrollPosition();
       });
+
+    this.signOutLifecycle.beforeSignOut$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.persistSession());
   }
 
   private subscribePrivateUi(username: string): void {
@@ -355,32 +356,6 @@ export class UserWindow implements OnInit, OnDestroy {
     this.mainTab.set('project');
     this.activeProject.set({ id: payload.projectId, name: payload.projectName });
     this.persistSession();
-  }
-
-  async changeDisplayName(): Promise<void> {
-    const cur = this.auth.displayName() ?? this.auth.userId() ?? '';
-    const n = window.prompt('新しいユーザー名', cur);
-    if (n === null) {
-      return;
-    }
-    try {
-      await this.auth.updateDisplayName(n);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '更新に失敗しました');
-    }
-  }
-
-  openAvatarSettings(): void {
-    this.dialog.open(AvatarSettingsDialog, {
-      width: 'min(96vw, 400px)',
-      autoFocus: 'first-tabbable',
-    });
-  }
-
-  signOut(): void {
-    this.persistSession();
-    this.auth.signOut();
-    void this.router.navigate(['/login']);
   }
 
   openProject(entry: NavEntry & { kind: 'project' }): void {

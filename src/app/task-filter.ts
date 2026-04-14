@@ -1,4 +1,5 @@
 import { Task } from '../models/task';
+import type { TaskStatus } from '../models/task-status';
 import { TASK_COLOR_CHART } from './task-colors';
 import { clampTaskPriority } from './task-priority';
 
@@ -17,6 +18,8 @@ export interface TaskFilterState {
   colors: string[];
   /** 空なら優先度で絞り込まない */
   priorities: number[];
+  /** 空なら進捗で絞り込まない */
+  statuses: TaskStatus[];
   dueDate: DueDateFilter;
   /** プロジェクトのみ。'all' | 'unassigned' | username */
   assignee: 'all' | 'unassigned' | string;
@@ -26,6 +29,7 @@ export function defaultTaskFilterState(): TaskFilterState {
   return {
     colors: [],
     priorities: [],
+    statuses: [],
     dueDate: 'all',
     assignee: 'all',
   };
@@ -39,6 +43,7 @@ export function isFilterDefaultForReorder(
   return (
     state.colors.length === 0 &&
     state.priorities.length === 0 &&
+    state.statuses.length === 0 &&
     state.dueDate === 'all' &&
     (!isProjectScope || state.assignee === 'all')
   );
@@ -106,7 +111,7 @@ function matchesAssignee(
 }
 
 /**
- * 色・優先度・期日・担当（プロジェクト時）で AND 絞り込み。
+ * 色・優先度・進捗・期日・担当（プロジェクト時）で AND 絞り込み。
  */
 export function filterTasks(
   tasks: Task[],
@@ -120,6 +125,8 @@ export function filterTasks(
     state.priorities.length > 0
       ? new Set(state.priorities.map((p) => clampTaskPriority(p)))
       : null;
+  const statusSet =
+    state.statuses.length > 0 ? new Set<TaskStatus>(state.statuses) : null;
 
   return tasks.filter((t) => {
     if (colorSet) {
@@ -129,6 +136,9 @@ export function filterTasks(
       }
     }
     if (priSet && !priSet.has(clampTaskPriority(t.priority))) {
+      return false;
+    }
+    if (statusSet && !statusSet.has(t.status)) {
       return false;
     }
     if (!matchesDueDateFilter(t, state.dueDate, now)) {

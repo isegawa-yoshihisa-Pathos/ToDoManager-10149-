@@ -1,47 +1,13 @@
-<div class="task-toolbar-wrap task-toolbar-with-add">
-  <div class="task-toolbar-primary-col">
-    <mat-button-toggle-group
-      class="view-mode-toggle"
-      [(ngModel)]="viewMode"
-      name="taskViewMode"
-      aria-label="表示モード"
-      (change)="onTaskListViewUiChange()"
-    >
-      <mat-button-toggle value="list">リスト</mat-button-toggle>
-      <mat-button-toggle value="calendar">カレンダー</mat-button-toggle>
-      <mat-button-toggle value="kanban">カンバン</mat-button-toggle>
-    </mat-button-toggle-group>
-    @if (viewMode === 'calendar') {
-      <mat-button-toggle-group
-        class="calendar-gran-toggle"
-        [(ngModel)]="calendarGranularity"
-        name="calendarGranularity"
-        aria-label="カレンダーの粒度"
-        (change)="onTaskListViewUiChange()"
-      >
-        <mat-button-toggle value="month">月</mat-button-toggle>
-        <mat-button-toggle value="week">週</mat-button-toggle>
-      </mat-button-toggle-group>
-    }
+<div class="task-toolbar-wrap">
+  <div class="task-toolbar-row task-toolbar-row-filters">
     <button
       type="button"
-      class="add-task-plus"
+      class="add-task-plus add-task-plus--primary"
       (click)="openAddTaskDialog()"
       aria-label="タスクを追加"
     >
       タスクを追加+
     </button>
-    <button
-      type="button"
-      class="task-list-hub-btn"
-      [class.active]="projectHubNavActive"
-      (click)="openProjectHub.emit()"
-      aria-label="タスクリストを追加"
-    >
-      タスクリストを追加＋
-    </button>
-  </div>
-  <div class="filter-sort-stack">
     <div class="filter-bar">
       <span class="filter-label">絞り込み</span>
       <mat-form-field appearance="outline" class="filter-field filter-select-multi filter-colors-field" subscriptSizing="dynamic">
@@ -82,10 +48,10 @@
           <mat-option *ngFor="let p of priorityFilterValues" [value]="p">{{ p }}</mat-option>
         </mat-select>
       </mat-form-field>
-      <mat-form-field appearance="outline" class="filter-field filter-due" subscriptSizing="dynamic">
-        <mat-label>期日</mat-label>
-        <mat-select [(ngModel)]="filterState.dueDate" name="filterDue">
-          <mat-option *ngFor="let o of dueDateFilterOptions" [value]="o.value">{{ o.label }}</mat-option>
+      <mat-form-field appearance="outline" class="filter-field filter-select-multi" subscriptSizing="dynamic">
+        <mat-label>進捗</mat-label>
+        <mat-select multiple [(ngModel)]="filterState.statuses" name="filterStatuses">
+          <mat-option *ngFor="let o of statusFilterOptions" [value]="o.value">{{ o.label }}</mat-option>
         </mat-select>
       </mat-form-field>
       @if (isProjectScope) {
@@ -130,12 +96,20 @@
             </mat-option>
           </mat-select>
         </mat-form-field>
+        <mat-form-field appearance="outline" class="filter-field filter-due" subscriptSizing="dynamic">
+          <mat-label>期日</mat-label>
+          <mat-select [(ngModel)]="filterState.dueDate" name="filterDue">
+            <mat-option *ngFor="let o of dueDateFilterOptions" [value]="o.value">{{ o.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
       }
       <button mat-stroked-button type="button" class="reset-filters-btn" (click)="resetFilters()">
-        条件をリセット
+        リセット
       </button>
     </div>
+  </div>
 
+  <div class="task-toolbar-row task-toolbar-row-sort">
     <div class="sort-bar">
       <span class="sort-label">並び替え</span>
       <mat-form-field appearance="outline" class="filter-field sort-select" subscriptSizing="dynamic">
@@ -164,6 +138,32 @@
         <mat-radio-button [value]="false">降順</mat-radio-button>
       </mat-radio-group>
     </div>
+  </div>
+
+  <div class="task-toolbar-row task-toolbar-row-view">
+    <mat-button-toggle-group
+      class="view-mode-toggle"
+      [(ngModel)]="viewMode"
+      name="taskViewMode"
+      aria-label="表示モード"
+      (change)="onTaskListViewUiChange()"
+    >
+      <mat-button-toggle value="list">リスト</mat-button-toggle>
+      <mat-button-toggle value="calendar">カレンダー</mat-button-toggle>
+      <mat-button-toggle value="kanban">カンバン</mat-button-toggle>
+    </mat-button-toggle-group>
+    @if (viewMode === 'calendar') {
+      <mat-button-toggle-group
+        class="calendar-gran-toggle"
+        [(ngModel)]="calendarGranularity"
+        name="calendarGranularity"
+        aria-label="カレンダーの粒度"
+        (change)="onTaskListViewUiChange()"
+      >
+        <mat-button-toggle value="month">月</mat-button-toggle>
+        <mat-button-toggle value="week">週</mat-button-toggle>
+      </mat-button-toggle-group>
+    }
   </div>
 </div>
 
@@ -202,7 +202,10 @@
   </div>
 } @else if (viewMode === 'kanban') {
   <div class="kanban-board-outer">
-    <div class="kanban-board-inner">
+    <div
+      class="kanban-board-inner"
+      [class.kanban-board-inner--fill]="kanbanColumnList.length <= 5"
+    >
       @for (col of kanbanColumnList; track col.id) {
         <div class="kanban-column">
           <div class="kanban-column-head">
@@ -258,7 +261,18 @@
         </div>
       }
       <div class="kanban-column kanban-add-list-column">
-        <h3 class="kanban-column-title kanban-add-list-heading" aria-hidden="true">&nbsp;</h3>
+        <div class="kanban-column-head">
+          <button
+            mat-button
+            type="button"
+            class="kanban-column-edit-btn kanban-add-list-edit-placeholder"
+            tabindex="-1"
+            disabled
+            aria-hidden="true"
+          >
+            編集
+          </button>
+        </div>
         <div class="kanban-drop-list kanban-add-list-drop">
           <button
             type="button"

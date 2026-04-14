@@ -1,8 +1,23 @@
 import { Task } from '../models/task';
+import type { TaskStatus } from '../models/task-status';
 import { TASK_COLOR_CHART } from './task-colors';
 import { clampTaskPriority } from './task-priority';
 
-export type TaskSortField = 'color' | 'deadline' | 'priority';
+export type TaskSortField = 'color' | 'deadline' | 'priority' | 'status';
+
+const STATUS_SORT_ORDER: TaskStatus[] = ['todo', 'in_progress', 'done'];
+
+function statusSortIndex(s: TaskStatus | undefined): number {
+  const i = STATUS_SORT_ORDER.indexOf(s ?? 'todo');
+  return i >= 0 ? i : STATUS_SORT_ORDER.length;
+}
+
+function compareStatus(a: Task, b: Task, ascending: boolean): number {
+  const ia = statusSortIndex(a.status);
+  const ib = statusSortIndex(b.status);
+  const cmp = ia - ib;
+  return ascending ? cmp : -cmp;
+}
 
 function colorSortIndex(hex: string | undefined): number {
   const c = hex?.trim() ?? '';
@@ -54,6 +69,8 @@ function compareField(a: Task, b: Task, field: TaskSortField, ascending: boolean
       return compareDeadline(a, b, ascending);
     case 'priority':
       return comparePriority(a, b, ascending);
+    case 'status':
+      return compareStatus(a, b, ascending);
     default:
       return 0;
   }

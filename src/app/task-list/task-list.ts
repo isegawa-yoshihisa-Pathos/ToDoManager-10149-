@@ -1,13 +1,11 @@
 import {
   Component,
   DestroyRef,
-  EventEmitter,
   inject,
   Input,
   OnChanges,
   OnDestroy,
   OnInit,
-  Output,
   SimpleChanges,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -67,6 +65,7 @@ import {
   DEFAULT_KANBAN_COLUMNS,
   type KanbanColumn,
 } from '../../models/kanban-column';
+import { TASK_STATUS_OPTIONS } from '../../models/task-status';
 
 @Component({
   selector: 'app-task-list',
@@ -100,11 +99,6 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
 
-  /** プロジェクトハブ画面がアクティブなとき（タスクリスト追加ボタンの見た目用） */
-  @Input() projectHubNavActive = false;
-
-  @Output() openProjectHub = new EventEmitter<void>();
-
   /** リスト表示 / カレンダー / カンバン */
   viewMode: 'list' | 'calendar' | 'kanban' = 'list';
   /** カレンダー時の月／週 */
@@ -128,11 +122,15 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     { value: 'color', label: '色' },
     { value: 'deadline', label: '期日' },
     { value: 'priority', label: '優先度' },
+    { value: 'status', label: '進捗' },
   ];
+
+  /** 進捗フィルタ（未着手 / 処理中 / 完了） */
+  readonly statusFilterOptions = TASK_STATUS_OPTIONS;
 
   readonly dueDateFilterOptions: { value: DueDateFilter; label: string }[] = [
     { value: 'all', label: '期日: すべて' },
-    { value: 'overdue', label: '期限切れ（未完了）' },
+    { value: 'overdue', label: '期限切れ' },
     { value: 'today', label: '今日が期限' },
     { value: 'within_7', label: '7日以内' },
     { value: 'within_30', label: '30日以内' },
