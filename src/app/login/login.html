@@ -2,7 +2,7 @@
     <div class="pane">
         <div class="input-container">
             <label class="subtitle">ログイン</label>
-            <input type="text" placeholder="ユーザーID（半角英数字）" [(ngModel)]="userId" name="userId">
+            <input type="email" placeholder="メールアドレス" [(ngModel)]="email" name="email" autocomplete="username">
             <input type="password" placeholder="パスワード" [(ngModel)]="password">
         </div>
         <div class="button-container">

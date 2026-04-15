@@ -161,9 +161,6 @@ export class TaskReport implements OnInit, OnDestroy {
       typeof rawAssignee === 'string' && rawAssignee.trim() !== ''
         ? rawAssignee.trim()
         : null;
-    const rawOi = data['orderIndex'];
-    const orderIndex =
-      typeof rawOi === 'number' && !Number.isNaN(rawOi) ? rawOi : undefined;
     const rawLo = data['listOrderIndex'];
     const listOrderIndex =
       typeof rawLo === 'number' && !Number.isNaN(rawLo) ? rawLo : undefined;
@@ -189,7 +186,6 @@ export class TaskReport implements OnInit, OnDestroy {
       description,
       priority,
       assignee,
-      orderIndex,
       listOrderIndex,
       kanbanOrderIndex,
       kanbanColumnId,

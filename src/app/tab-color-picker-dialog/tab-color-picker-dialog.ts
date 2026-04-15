@@ -32,11 +32,6 @@ export class TabColorPickerDialog {
     this.ref.close(hex);
   }
 
-  isClearSelected(): boolean {
-    const c = this.data.current?.trim() ?? '#ffffff';
-    return c === '#ffffff';
-  }
-
   isChartColorSelected(chartHex: string): boolean {
     return (this.data.current?.trim() ?? '#ffffff') === chartHex;
   }

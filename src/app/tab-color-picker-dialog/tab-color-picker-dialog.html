@@ -4,16 +4,9 @@
   <div class="palette" role="listbox" aria-label="タブの背景色">
     <button
       type="button"
-      class="swatch swatch-none"
-      [class.selected]="isClearSelected()"
-      [attr.aria-pressed]="isClearSelected()"
-      aria-label="無色（デフォルト）"
-      (click)="pick('#ffffff')"
-    ></button>
-    <button
-      type="button"
       *ngFor="let c of chart"
       class="swatch"
+      [class.swatch-white]="c === '#FFFFFF'"
       [style.backgroundColor]="c"
       [class.selected]="isChartColorSelected(c)"
       [attr.aria-pressed]="isChartColorSelected(c)"

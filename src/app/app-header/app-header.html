@@ -12,17 +12,21 @@
         <span class="account-btn-inner">
           <app-user-avatar
             [userId]="auth.userId() ?? ''"
-            [displayName]="auth.displayName() ?? ''"
+            [displayName]="accountAvatarDisplayName()"
             [avatarUrl]="auth.avatarUrl()"
             size="sm"
           />
-          <span class="account-btn-label">{{ auth.displayName() ?? auth.userId() }}</span>
+          <span class="account-btn-label">{{ accountMenuLabel() }}</span>
         </span>
       </button>
       <mat-menu #accountMenu="matMenu">
         <button mat-menu-item type="button" (click)="changeDisplayName()">ユーザー名を変更</button>
         <button mat-menu-item type="button" (click)="openAvatarSettings()">プロフィール画像</button>
         <button mat-menu-item type="button" (click)="signOut()">サインアウト</button>
+        <mat-divider />
+        <button mat-menu-item type="button" class="account-menu-delete" (click)="deleteAccount()">
+          アカウントを削除
+        </button>
       </mat-menu>
     </div>
   } @else {

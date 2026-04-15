@@ -195,15 +195,15 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     return filterTasks(this.tasks, this.filterState, now, this.isProjectScope);
   }
 
-  /** リスト用の並びキー（未設定は `orderIndex` にフォールバック） */
+  /** リスト用の並びキー */
   private listOrderNum(t: Task): number {
-    const v = t.listOrderIndex ?? t.orderIndex;
+    const v = t.listOrderIndex;
     return typeof v === 'number' && !Number.isNaN(v) ? v : Number.MAX_SAFE_INTEGER;
   }
 
-  /** カンバン用の並びキー（未設定は `orderIndex` にフォールバック） */
+  /** カンバン用の並びキー */
   private kanbanOrderNum(t: Task): number {
-    const v = t.kanbanOrderIndex ?? t.orderIndex;
+    const v = t.kanbanOrderIndex;
     return typeof v === 'number' && !Number.isNaN(v) ? v : Number.MAX_SAFE_INTEGER;
   }
 
@@ -492,9 +492,6 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
               typeof rawAssignee === 'string' && rawAssignee.trim() !== ''
                 ? rawAssignee.trim()
                 : null;
-            const rawOi = data['orderIndex'];
-            const orderIndex =
-              typeof rawOi === 'number' && !Number.isNaN(rawOi) ? rawOi : undefined;
             const rawLo = data['listOrderIndex'];
             const listOrderIndex =
               typeof rawLo === 'number' && !Number.isNaN(rawLo) ? rawLo : undefined;
@@ -522,7 +519,6 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
               description,
               priority,
               assignee,
-              orderIndex,
               listOrderIndex,
               kanbanOrderIndex,
               kanbanColumnId,
@@ -577,11 +573,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     let maxList = -1;
     let maxKb = -1;
     for (const t of roots) {
-      const l = t.listOrderIndex ?? t.orderIndex;
+      const l = t.listOrderIndex;
       if (typeof l === 'number' && !Number.isNaN(l)) {
         maxList = Math.max(maxList, l);
       }
-      const k = t.kanbanOrderIndex ?? t.orderIndex;
+      const k = t.kanbanOrderIndex;
       if (typeof k === 'number' && !Number.isNaN(k)) {
         maxKb = Math.max(maxKb, k);
       }
@@ -590,7 +586,6 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     const nextKb = maxKb < 0 ? 0 : maxKb + 1000;
     payload['listOrderIndex'] = nextList;
     payload['kanbanOrderIndex'] = nextKb;
-    payload['orderIndex'] = nextList;
     payload['createdAt'] = serverTimestamp();
     payload['updatedAt'] = serverTimestamp();
     void addDoc(col, payload).then((docRef) =>
@@ -639,11 +634,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     let maxList = -1;
     let maxKb = -1;
     for (const t of siblings) {
-      const l = t.listOrderIndex ?? t.orderIndex;
+      const l = t.listOrderIndex;
       if (typeof l === 'number' && !Number.isNaN(l)) {
         maxList = Math.max(maxList, l);
       }
-      const k = t.kanbanOrderIndex ?? t.orderIndex;
+      const k = t.kanbanOrderIndex;
       if (typeof k === 'number' && !Number.isNaN(k)) {
         maxKb = Math.max(maxKb, k);
       }
@@ -652,7 +647,6 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     const nextKb = maxKb < 0 ? 0 : maxKb + 1000;
     payload['listOrderIndex'] = nextList;
     payload['kanbanOrderIndex'] = nextKb;
-    payload['orderIndex'] = nextList;
     payload['createdAt'] = serverTimestamp();
     payload['updatedAt'] = serverTimestamp();
     void addDoc(col, payload).then((docRef) =>
@@ -1197,7 +1191,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         return;
       }
       const v = index * 1000;
-      batch.update(r, { listOrderIndex: v, orderIndex: v });
+      batch.update(r, { listOrderIndex: v });
     });
     try {
       await batch.commit();
@@ -1221,7 +1215,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         return;
       }
       const v = index * 1000;
-      batch.update(r, { listOrderIndex: v, orderIndex: v });
+      batch.update(r, { listOrderIndex: v });
     });
     try {
       await batch.commit();

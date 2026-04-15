@@ -1,14 +1,16 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Firestore, doc, getDoc } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, doc, getDoc } from '@angular/fire/firestore';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { map } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { ProjectMembers } from '../project-members/project-members';
 import { AuthService } from '../auth.service';
-import { ProjectService } from '../project.service';
+import { ProjectService, PROJECT_PENDING_JOIN_REQUESTS } from '../project.service';
 
 @Component({
   selector: 'app-project-settings',
@@ -24,12 +26,14 @@ import { ProjectService } from '../project.service';
   templateUrl: './project-settings.html',
   styleUrl: './project-settings.css',
 })
-export class ProjectSettings implements OnInit {
+export class ProjectSettings implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(AuthService);
   private readonly projectService = inject(ProjectService);
+
+  private joinReqSub?: Subscription;
 
   projectId = '';
   projectName = '';
@@ -39,17 +43,60 @@ export class ProjectSettings implements OnInit {
   renameSaving = false;
   renameError: string | null = null;
 
+  approveEmailInput = '';
+  approveSaving = false;
+  approveError: string | null = null;
+
+  pendingJoinRequests: { userId: string; email: string }[] = [];
+  /** 認証／拒否のどちらか処理中の申請ユーザー ID */
+  joinRequestBusyUserId: string | null = null;
+
   ngOnInit(): void {
     this.route.paramMap.subscribe((pm) => {
+      this.unsubscribeJoinRequests();
+      this.pendingJoinRequests = [];
       this.projectId = pm.get('projectId') ?? '';
       void this.load();
     });
+  }
+
+  ngOnDestroy(): void {
+    this.unsubscribeJoinRequests();
+  }
+
+  private unsubscribeJoinRequests(): void {
+    this.joinReqSub?.unsubscribe();
+    this.joinReqSub = undefined;
+  }
+
+  private subscribeJoinRequests(): void {
+    if (!this.projectId || this.notFound) {
+      return;
+    }
+    const col = collection(this.firestore, 'projects', this.projectId, PROJECT_PENDING_JOIN_REQUESTS);
+    this.joinReqSub = collectionData(col, { idField: 'userId' })
+      .pipe(
+        map((rows) =>
+          (rows as Record<string, unknown>[]).map((data) => ({
+            userId: String(data['userId'] ?? ''),
+            email:
+              typeof data['emailLower'] === 'string' && data['emailLower'] !== ''
+                ? data['emailLower']
+                : '',
+          })),
+        ),
+      )
+      .subscribe((rows) => {
+        this.pendingJoinRequests = rows;
+      });
   }
 
   private async load(): Promise<void> {
     this.loading = true;
     this.notFound = false;
     this.renameError = null;
+    this.unsubscribeJoinRequests();
+    this.pendingJoinRequests = [];
     if (!this.projectId) {
       this.notFound = true;
       this.loading = false;
@@ -66,6 +113,7 @@ export class ProjectSettings implements OnInit {
     this.projectName = typeof data['name'] === 'string' ? data['name'] : '（無題）';
     this.projectNameEdit = this.projectName;
     this.loading = false;
+    this.subscribeJoinRequests();
   }
 
   back(): void {
@@ -96,6 +144,53 @@ export class ProjectSettings implements OnInit {
       this.renameError = e instanceof Error ? e.message : '名前の更新に失敗しました';
     } finally {
       this.renameSaving = false;
+    }
+  }
+
+  async onGrantApprovedEmail(): Promise<void> {
+    const adminId = this.auth.userId();
+    if (!adminId || !this.projectId) {
+      return;
+    }
+    this.approveError = null;
+    this.approveSaving = true;
+    try {
+      await this.projectService.grantAuthenticatedEmail(this.projectId, this.approveEmailInput, adminId);
+      this.approveEmailInput = '';
+    } catch (e) {
+      this.approveError = e instanceof Error ? e.message : '認証に失敗しました';
+    } finally {
+      this.approveSaving = false;
+    }
+  }
+
+  async onApproveJoinRequest(requestUserId: string): Promise<void> {
+    const adminId = this.auth.userId();
+    if (!adminId || !this.projectId) {
+      return;
+    }
+    this.joinRequestBusyUserId = requestUserId;
+    try {
+      await this.projectService.approveJoinRequest(this.projectId, requestUserId, adminId);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '承認に失敗しました');
+    } finally {
+      this.joinRequestBusyUserId = null;
+    }
+  }
+
+  async onRejectJoinRequest(requestUserId: string): Promise<void> {
+    const adminId = this.auth.userId();
+    if (!adminId || !this.projectId) {
+      return;
+    }
+    this.joinRequestBusyUserId = requestUserId;
+    try {
+      await this.projectService.rejectJoinRequest(this.projectId, requestUserId, adminId);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '拒否に失敗しました');
+    } finally {
+      this.joinRequestBusyUserId = null;
     }
   }
 

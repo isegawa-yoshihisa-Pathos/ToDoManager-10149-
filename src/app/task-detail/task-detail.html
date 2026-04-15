@@ -165,14 +165,8 @@
     }
 
     <div class="field chat-field">
-      <label class="field-label">チャット</label>
+        <label class="field-label">チャット</label>
       <div class="chat-panel mat-elevation-z1">
-        @if (legacyDescription) {
-          <div class="legacy-memo">
-            <span class="legacy-label">以前のメモ（移行前）</span>
-            <div class="legacy-body">{{ legacyDescription }}</div>
-          </div>
-        }
         <div #chatScroll class="chat-scroll">
           @for (m of chatMessages; track m.id) {
             <div class="chat-bubble">

@@ -64,14 +64,23 @@ export class ProjectHub {
       return;
     }
     try {
-      const row = await this.projectService.joinProject(
+      const result = await this.projectService.joinProject(
         this.joinProjectId,
         this.joinPassword,
         userId,
       );
       this.joinProjectId = '';
       this.joinPassword = '';
-      this.projectOpened.emit({ projectId: row.projectId, projectName: row.projectName });
+      if (result.status === 'tabOpened') {
+        this.projectOpened.emit({
+          projectId: result.row.projectId,
+          projectName: result.row.projectName,
+        });
+      } else {
+        alert(
+          '参加申請を送信しました。管理者がメールを認証するとメンバーとして参加できます。',
+        );
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : '参加に失敗しました');
     }

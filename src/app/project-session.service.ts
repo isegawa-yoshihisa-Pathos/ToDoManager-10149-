@@ -1,8 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { AuthService } from './auth.service';
 
-/** 旧：全ユーザー共通（切り替え時に前ユーザーの画面状態が残る問題があった） */
-const LEGACY_STORAGE_KEY = 'angular-todo-project-session';
 const STORAGE_KEY_PREFIX = 'angular-todo-project-session:';
 
 /** タスクリスト（タブ）ごとの表示モード（ユーザー別 localStorage） */
@@ -20,7 +18,7 @@ export interface ProjectSessionState {
   activeProject: { id: string; name: string } | null;
   /** タブ表示のキャッシュ（Firestore 同期前の表示用） */
   projectTabsCache: { projectId: string; projectName: string }[];
-  /** 選択中のプライベートリスト（`default` は従来の `accounts/.../tasks`） */
+  /** 選択中のプライベートリスト（`default` は既定の `accounts/{uid}/tasks`） */
   activePrivateListId: 'default' | string;
   /** 追加プライベートリストのタブ表示キャッシュ */
   privateListsCache: { id: string; title: string }[];
@@ -51,19 +49,11 @@ export class ProjectSessionService {
     return `${STORAGE_KEY_PREFIX}${userId}`;
   }
 
-  /**
-   * ログイン中ユーザーのみ永続化。未ログイン時は常に既定値。
-   * 旧グローバルキーはユーザー混在のため読まず削除する。
-   */
+  /** ログイン中ユーザーのみ永続化。未ログイン時は常に既定値。 */
   load(): ProjectSessionState {
     const uid = this.auth.userId();
     if (!uid) {
       return defaultState();
-    }
-    try {
-      localStorage.removeItem(LEGACY_STORAGE_KEY);
-    } catch {
-      /* ignore */
     }
     try {
       const raw = localStorage.getItem(this.storageKeyForUser(uid));

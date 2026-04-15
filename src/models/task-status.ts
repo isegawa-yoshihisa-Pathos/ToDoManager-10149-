@@ -11,7 +11,7 @@ export const TASK_STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
 export function nextTaskStatus(current: TaskStatus): TaskStatus {
   const order: TaskStatus[] = ['todo', 'in_progress', 'done'];
   const i = order.indexOf(current);
-  const next = i < 0 ? 0 : (i + 1) % order.length;
+  const next = (i + 1) % order.length;
   return order[next];
 }
 
@@ -24,18 +24,15 @@ export function taskStatusLabel(s: TaskStatus): string {
   return m[s];
 }
 
-/** Firestore: `status` が無い既存ドキュメントは `done` で推測 */
+/** Firestore: `status` が無い／不正な場合は `todo` */
 export function normalizeTaskStatusFromDoc(data: Record<string, unknown>): TaskStatus {
   const s = data['status'];
   if (s === 'todo' || s === 'in_progress' || s === 'done') {
     return s;
   }
-  if (data['done'] === true) {
-    return 'done';
-  }
   return 'todo';
 }
 
-export function firestoreStatusFields(status: TaskStatus): { status: TaskStatus; done: boolean } {
-  return { status, done: status === 'done' };
+export function firestoreStatusFields(status: TaskStatus): { status: TaskStatus } {
+  return { status };
 }

@@ -1,7 +1,19 @@
 import { inject, Injectable, signal } from '@angular/core';
+import { Auth, authState } from '@angular/fire/auth';
+import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  updateProfile,
+} from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import {
   Firestore,
   collection,
+  deleteDoc,
   deleteField,
   doc,
   getDoc,
@@ -10,17 +22,15 @@ import {
   updateDoc,
   writeBatch,
 } from '@angular/fire/firestore';
-import { isValidProjectIdChars } from './nav-tab-order';
-
-const SESSION_USER_ID_KEY = 'angular-todo-user-id';
-/** 旧キー（移行用） */
-const LEGACY_SESSION_USERNAME_KEY = 'angular-todo-username';
+import { ProjectService } from './project.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly auth = inject(Auth);
   private readonly firestore = inject(Firestore);
+  private readonly projectService = inject(ProjectService);
 
-  /** Firestore `accounts/{userId}` のドキュメントID。半角英数字のみ。変更不可。 */
+  /** Firebase Auth の UID。Firestore の `accounts/{uid}` 等のパスに使用 */
   readonly userId = signal<string | null>(null);
 
   /** 表示用のユーザー名（プロジェクトメンバー表記など）。変更可。 */
@@ -29,35 +39,68 @@ export class AuthService {
   /** プロフィール画像 URL（未設定なら null） */
   readonly avatarUrl = signal<string | null>(null);
 
+  /** ログイン中ユーザーのメール（小文字・正規化）。未ログインは null */
+  readonly authEmail = signal<string | null>(null);
+
+  /**
+   * 新規登録中は authState が updateProfile / setDoc より先に届き、
+   * 表示名が uid に落ちるのを防ぐため、この間は hydrate をスキップする。
+   */
+  private signUpHydrationLock = false;
+
   constructor() {
-    const stored =
-      sessionStorage.getItem(SESSION_USER_ID_KEY) ??
-      sessionStorage.getItem(LEGACY_SESSION_USERNAME_KEY);
-    if (stored) {
-      if (!sessionStorage.getItem(SESSION_USER_ID_KEY)) {
-        sessionStorage.setItem(SESSION_USER_ID_KEY, stored);
-        sessionStorage.removeItem(LEGACY_SESSION_USERNAME_KEY);
+    authState(this.auth).subscribe((user) => {
+      if (!user) {
+        this.userId.set(null);
+        this.displayName.set(null);
+        this.avatarUrl.set(null);
+        this.authEmail.set(null);
+        return;
       }
-      this.userId.set(stored);
-      void this.hydrateProfile(stored);
-    }
+      this.userId.set(user.uid);
+      const em = user.email?.trim().toLowerCase() ?? null;
+      this.authEmail.set(em && em !== '' ? em : null);
+      if (this.signUpHydrationLock) {
+        return;
+      }
+      void this.hydrateProfile(user.uid, user.displayName?.trim() ?? null);
+    });
   }
 
-  private async hydrateProfile(uid: string): Promise<void> {
+  private async hydrateProfile(uid: string, authDisplayName: string | null): Promise<void> {
     const snap = await getDoc(doc(this.firestore, 'accounts', uid));
     if (!snap.exists()) {
+      const live =
+        this.auth.currentUser?.uid === uid
+          ? this.auth.currentUser.displayName?.trim() ?? ''
+          : '';
+      const dn =
+        (authDisplayName && authDisplayName !== '' ? authDisplayName : '') ||
+        (live !== '' ? live : '') ||
+        uid;
+      this.displayName.set(dn);
+      this.avatarUrl.set(null);
       return;
     }
     const d = snap.data() as {
       displayName?: string;
-      username?: string;
       avatarUrl?: string;
+      emailLower?: string;
     };
+    const authEm =
+      this.auth.currentUser?.uid === uid ? this.auth.currentUser?.email?.trim().toLowerCase() : '';
+    if (authEm && authEm !== '') {
+      const cur =
+        typeof d['emailLower'] === 'string' ? d['emailLower'].trim().toLowerCase() : '';
+      if (cur !== authEm) {
+        await updateDoc(doc(this.firestore, 'accounts', uid), { emailLower: authEm });
+      }
+    }
     const dn =
       typeof d['displayName'] === 'string' && d['displayName'].trim() !== ''
         ? d['displayName'].trim()
-        : typeof d['username'] === 'string' && d['username'].trim() !== ''
-          ? d['username'].trim()
+        : authDisplayName && authDisplayName !== ''
+          ? authDisplayName
           : uid;
     this.displayName.set(dn);
     const av =
@@ -67,77 +110,61 @@ export class AuthService {
     this.avatarUrl.set(av);
   }
 
-  private assertValidUserId(id: string): string {
-    const u = id.trim();
-    if (!u) {
-      throw new Error('ユーザーIDを入力してください');
-    }
-    if (!isValidProjectIdChars(u)) {
-      throw new Error('ユーザーIDは半角英数字のみ使用できます');
-    }
-    if (u.length < 2 || u.length > 64) {
-      throw new Error('ユーザーIDは2〜64文字の半角英数字にしてください');
-    }
-    return u;
-  }
-
-  async signUp(userIdRaw: string, displayNameRaw: string, password: string): Promise<void> {
-    const userId = this.assertValidUserId(userIdRaw);
+  async signUp(emailRaw: string, displayNameRaw: string, password: string): Promise<void> {
+    const email = emailRaw.trim().toLowerCase();
     const displayName = displayNameRaw.trim();
+    if (!email) {
+      throw new Error('メールアドレスを入力してください');
+    }
     if (!displayName) {
       throw new Error('ユーザー名を入力してください');
     }
     if (!password) {
       throw new Error('パスワードを入力してください');
     }
-    const ref = doc(this.firestore, 'accounts', userId);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      throw new Error('このユーザーIDは既に使われています');
+    this.signUpHydrationLock = true;
+    /** createUser 直後の authState で userId だけ先に立つ間、ラベルに UID が出ないよう先に入れる */
+    this.displayName.set(displayName);
+    this.avatarUrl.set(null);
+    let cred;
+    try {
+      try {
+        cred = await createUserWithEmailAndPassword(this.auth, email, password);
+      } catch (e) {
+        this.displayName.set(null);
+        throw mapFirebaseAuthError(e);
+      }
+      await updateProfile(cred.user, { displayName });
+      await setDoc(doc(this.firestore, 'accounts', cred.user.uid), {
+        displayName,
+        emailLower: email,
+      });
+    } finally {
+      this.signUpHydrationLock = false;
+      const u = this.auth.currentUser;
+      if (u) {
+        void this.hydrateProfile(u.uid, u.displayName?.trim() ?? null);
+      }
     }
-    await setDoc(ref, { displayName, password });
   }
 
-  async signIn(userIdRaw: string, password: string): Promise<boolean> {
-    const userId = this.assertValidUserId(userIdRaw);
-    if (!password) {
+  async signIn(emailRaw: string, password: string): Promise<boolean> {
+    const email = emailRaw.trim().toLowerCase();
+    if (!email || !password) {
       return false;
     }
-    const ref = doc(this.firestore, 'accounts', userId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
+    try {
+      await signInWithEmailAndPassword(this.auth, email, password);
+      return true;
+    } catch {
       return false;
     }
-    const data = snap.data() as {
-      password?: string;
-      displayName?: string;
-      username?: string;
-      avatarUrl?: string;
-    };
-    if (data['password'] !== password) {
-      return false;
-    }
-    const dn =
-      typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
-        ? data['displayName'].trim()
-        : typeof data['username'] === 'string' && data['username'].trim() !== ''
-          ? data['username'].trim()
-          : userId;
-    this.userId.set(userId);
-    this.displayName.set(dn);
-    const av =
-      typeof data['avatarUrl'] === 'string' && data['avatarUrl'].trim() !== ''
-        ? data['avatarUrl'].trim()
-        : null;
-    this.avatarUrl.set(av);
-    sessionStorage.setItem(SESSION_USER_ID_KEY, userId);
-    sessionStorage.removeItem(LEGACY_SESSION_USERNAME_KEY);
-    return true;
   }
 
   /** 表示名を更新し、参加中プロジェクトのメンバー文書の displayName も同期する */
   async updateDisplayName(newDisplayName: string): Promise<void> {
-    const uid = this.userId();
+    const user = this.auth.currentUser;
+    const uid = user?.uid;
     if (!uid) {
       throw new Error('ログインしていません');
     }
@@ -145,6 +172,7 @@ export class AuthService {
     if (!name) {
       throw new Error('ユーザー名を入力してください');
     }
+    await updateProfile(user, { displayName: name });
     await updateDoc(doc(this.firestore, 'accounts', uid), { displayName: name });
     this.displayName.set(name);
 
@@ -164,7 +192,7 @@ export class AuthService {
 
   /** アイコン URL を更新し、参加中プロジェクトのメンバー文書にも同期する */
   async updateAvatarUrl(downloadUrl: string | null): Promise<void> {
-    const uid = this.userId();
+    const uid = this.auth.currentUser?.uid;
     if (!uid) {
       throw new Error('ログインしていません');
     }
@@ -196,11 +224,73 @@ export class AuthService {
     await batch.commit();
   }
 
-  signOut(): void {
-    this.userId.set(null);
-    this.displayName.set(null);
-    this.avatarUrl.set(null);
-    sessionStorage.removeItem(SESSION_USER_ID_KEY);
-    sessionStorage.removeItem(LEGACY_SESSION_USERNAME_KEY);
+  async signOut(): Promise<void> {
+    await firebaseSignOut(this.auth);
   }
+
+  /**
+   * 参加中プロジェクトからの脱退・`accounts/{uid}` 削除のあと Firebase Auth のユーザーを削除する。
+   * 未承認の参加申請ドキュメントなどはプロジェクト横断のため別途クリーンアップが必要な場合があります。
+   * メール／パスワードの再認証が必須（`auth/requires-recent-login` 回避）。
+   */
+  async deleteAccount(currentPassword: string): Promise<void> {
+    const user = this.auth.currentUser;
+    if (!user || !user.email) {
+      throw new Error('ログインしていません');
+    }
+    const pwd = currentPassword.trim();
+    if (!pwd) {
+      throw new Error('パスワードを入力してください');
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, pwd);
+    try {
+      await reauthenticateWithCredential(user, credential);
+    } catch (e) {
+      throw mapFirebaseAuthError(e);
+    }
+
+    const uid = user.uid;
+
+    const membershipsCol = collection(this.firestore, 'accounts', uid, 'projectMemberships');
+    const membershipsSnap = await getDocs(membershipsCol);
+    for (const d of membershipsSnap.docs) {
+      await this.projectService.leaveProject(d.id, uid);
+    }
+
+    const accRef = doc(this.firestore, 'accounts', uid);
+    const accSnap = await getDoc(accRef);
+    if (accSnap.exists()) {
+      await deleteDoc(accRef);
+    }
+
+    try {
+      await deleteUser(user);
+    } catch (e) {
+      throw mapFirebaseAuthError(e);
+    }
+  }
+}
+
+function mapFirebaseAuthError(e: unknown): Error {
+  if (e instanceof FirebaseError) {
+    switch (e.code) {
+      case 'auth/email-already-in-use':
+        return new Error('このメールアドレスは既に登録されています');
+      case 'auth/invalid-email':
+        return new Error('メールアドレスの形式が正しくありません');
+      case 'auth/weak-password':
+        return new Error('パスワードが弱すぎます（6文字以上にしてください）');
+      case 'auth/requires-recent-login':
+        return new Error(
+          'セキュリティのため、一度サインアウトしてから再度ログインし、もう一度お試しください',
+        );
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return new Error('パスワードが正しくありません');
+      default:
+        break;
+    }
+  }
+  return e instanceof Error ? e : new Error('認証に失敗しました');
 }

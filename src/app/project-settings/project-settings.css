@@ -83,3 +83,78 @@
   font-weight: 600;
   margin: 0 0 8px;
 }
+
+.approval-section {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.approval-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.approval-email-field {
+  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 360px;
+}
+
+.approval-error {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #cf1322;
+}
+
+.join-request-block {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fff8e6;
+  border: 1px solid #ffe0a3;
+}
+
+.join-request-prompt {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.join-request-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.join-request-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.join-request-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.join-request-email {
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.join-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}

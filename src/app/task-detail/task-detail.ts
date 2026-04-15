@@ -128,9 +128,6 @@ export class TaskDetail implements OnInit, OnDestroy {
   /** 読み込み時の進捗（完了日時・ログ用） */
   private statusAtLoad: TaskStatus = 'todo';
 
-  /** 従来フィールド description（チャット移行前）。表示のみ */
-  legacyDescription = '';
-
   chatMessages: {
     id: string;
     authorUserId: string;
@@ -259,8 +256,8 @@ export class TaskDetail implements OnInit, OnDestroy {
         ),
         map((tasks) =>
           [...tasks].sort((a, b) => {
-            const la = a.listOrderIndex ?? a.orderIndex;
-            const lb = b.listOrderIndex ?? b.orderIndex;
+            const la = a.listOrderIndex;
+            const lb = b.listOrderIndex;
             const na =
               typeof la === 'number' && !Number.isNaN(la) ? la : Number.MAX_SAFE_INTEGER;
             const nb =
@@ -286,9 +283,6 @@ export class TaskDetail implements OnInit, OnDestroy {
     const rawLo = data['listOrderIndex'];
     const listOrderIndex =
       typeof rawLo === 'number' && !Number.isNaN(rawLo) ? rawLo : undefined;
-    const rawOi = data['orderIndex'];
-    const orderIndex =
-      typeof rawOi === 'number' && !Number.isNaN(rawOi) ? rawOi : undefined;
     const rawP = data['parentTaskId'];
     const parentTaskId =
       typeof rawP === 'string' && rawP.trim() !== '' ? rawP.trim() : null;
@@ -299,7 +293,6 @@ export class TaskDetail implements OnInit, OnDestroy {
       status,
       priority,
       listOrderIndex,
-      orderIndex,
       parentTaskId,
     } as Task;
   }
@@ -408,7 +401,6 @@ export class TaskDetail implements OnInit, OnDestroy {
     this.subtasksSub = undefined;
     this.subtasks = [];
     this.chatMessages = [];
-    this.legacyDescription = '';
 
     const ref = this.taskDocRef();
     if (!ref) {
@@ -447,8 +439,6 @@ export class TaskDetail implements OnInit, OnDestroy {
       this.editStartStr = '';
       this.editEndStr = '';
     }
-    const desc = typeof data['description'] === 'string' ? data['description'] : '';
-    this.legacyDescription = desc.trim() !== '' ? desc : '';
     this.editPriority = clampTaskPriority(data['priority']);
     const rawAs = data['assignee'];
     this.editAssignee =

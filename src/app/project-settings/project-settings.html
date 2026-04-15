@@ -41,6 +41,68 @@
     <h2 class="section-title">メンバー</h2>
     <app-project-members [projectId]="projectId"></app-project-members>
 
+    <div class="approval-section">
+      <h2 class="section-title">メンバー承認</h2>
+      <div class="approval-form-row">
+        <mat-form-field appearance="outline" class="approval-email-field" subscriptSizing="dynamic">
+          <mat-label>メールアドレス</mat-label>
+          <input
+            matInput
+            type="email"
+            name="approveEmail"
+            [(ngModel)]="approveEmailInput"
+            [disabled]="approveSaving"
+            autocomplete="off"
+          />
+        </mat-form-field>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="approveSaving"
+          (click)="onGrantApprovedEmail()"
+        >
+          認証
+        </button>
+      </div>
+      @if (approveError) {
+        <p class="approval-error">{{ approveError }}</p>
+      }
+
+      @if (pendingJoinRequests.length) {
+        <div class="join-request-block">
+          <p class="join-request-prompt">アクセスがありました。認証しますか？</p>
+          <ul class="join-request-list">
+            @for (r of pendingJoinRequests; track r.userId) {
+              <li class="join-request-item">
+                <span class="join-request-email">{{ r.email }}</span>
+                <span class="join-request-actions">
+                  <button
+                    mat-stroked-button
+                    color="primary"
+                    type="button"
+                    [disabled]="joinRequestBusyUserId === r.userId"
+                    (click)="onApproveJoinRequest(r.userId)"
+                  >
+                    認証
+                  </button>
+                  <button
+                    mat-stroked-button
+                    color="warn"
+                    type="button"
+                    [disabled]="joinRequestBusyUserId === r.userId"
+                    (click)="onRejectJoinRequest(r.userId)"
+                  >
+                    拒否
+                  </button>
+                </span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
     <div class="toolbar toolbar-danger">
       <button mat-stroked-button type="button" (click)="onLeaveProject()">プロジェクトを脱退</button>
       <button mat-flat-button color="warn" type="button" (click)="onDeleteProject()">

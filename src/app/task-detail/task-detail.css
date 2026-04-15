@@ -109,25 +109,6 @@
   background: #fafafa;
 }
 
-.legacy-memo {
-  padding: 10px 12px;
-  background: #eceff1;
-  border-bottom: 1px solid #e0e0e0;
-  font-size: 13px;
-}
-
-.legacy-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 4px;
-  color: rgba(0, 0, 0, 0.55);
-}
-
-.legacy-body {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 .chat-scroll {
   max-height: 360px;
   overflow: auto;

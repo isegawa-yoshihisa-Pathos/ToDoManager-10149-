@@ -59,3 +59,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.account-menu-delete {
+  color: #c62828;
+}
