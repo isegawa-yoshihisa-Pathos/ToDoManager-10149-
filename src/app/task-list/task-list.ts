@@ -36,6 +36,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { TaskFormDialog } from '../task-form-dialog/task-form-dialog';
+import { TaskDuplicateDialog } from '../task-duplicate-dialog/task-duplicate-dialog';
 import {
   Firestore,
   collection,
@@ -60,6 +61,7 @@ import { TaskCalendar, type TaskCalendarGranularity } from '../task-calendar/tas
 import { UserAvatar } from '../user-avatar/user-avatar';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
+import { MatCheckboxChange, MatCheckboxModule } from '@angular/material/checkbox';
 import { TASK_RETURN_QUERY } from '../task-return-query';
 import { ProjectSessionService } from '../project-session.service';
 import { timestampLikeToDate } from '../task-schedule';
@@ -86,6 +88,7 @@ import { taskStatusTransitionPatch } from '../task-firestore-mutation';
     MatRadioModule,
     MatDialogModule,
     MatMenuModule,
+    MatCheckboxModule,
     UserAvatar,
   ],
   templateUrl: './task-list.html',
@@ -157,6 +160,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   contextMenuX = 0;
   contextMenuY = 0;
   ctxTask: Task | null = null;
+  /** 右クリック一括メニュー用（2件以上選択かつ対象行が選択内） */
+  ctxBulkMode = false;
+  ctxBulkIds: string[] = [];
+  /** リスト複数選択 */
+  private selectedTaskIdSet = new Set<string>();
 
   /** フィルタのスウォッチ用。チャート外の #RRGGBB もその色で表示 */
   labelCssForFilter(hex: string): string {
@@ -392,8 +400,114 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     this.onTaskListViewUiChange();
   }
 
+  isTaskSelected(taskId: string | undefined): boolean {
+    return !!taskId && this.selectedTaskIdSet.has(taskId);
+  }
+
+  onTaskSelectionChange(task: Task, selected: boolean): void {
+    const id = task.id;
+    if (!id) {
+      return;
+    }
+    const subtree = this.collectSubtreeIds(id);
+    const next = new Set(this.selectedTaskIdSet);
+    if (selected) {
+      for (const x of subtree) {
+        next.add(x);
+      }
+    } else {
+      for (const x of subtree) {
+        next.delete(x);
+      }
+    }
+    this.selectedTaskIdSet = next;
+  }
+
+  private clearTaskSelection(): void {
+    this.selectedTaskIdSet = new Set();
+  }
+
+  /** リストに表示中の行（ルート＋展開中の子）の ID */
+  listSelectableTaskIds(): string[] {
+    const ids: string[] = [];
+    for (const t of this.displayRootTasks) {
+      if (t.id) {
+        ids.push(t.id);
+      }
+      const pid = t.id;
+      if (pid && this.isSubtasksExpanded(pid)) {
+        for (const st of this.subtasksForParentList(pid)) {
+          if (st.id) {
+            ids.push(st.id);
+          }
+        }
+      }
+    }
+    return ids;
+  }
+
+  /** カンバンに表示中のカード（全列のルート＋展開中の子）の ID */
+  kanbanSelectableTaskIds(): string[] {
+    const ids: string[] = [];
+    for (const col of this.kanbanColumnList) {
+      for (const t of this.tasksForKanbanColumnId(col.id)) {
+        if (t.id) {
+          ids.push(t.id);
+        }
+        const pid = t.id;
+        if (pid && this.isSubtasksExpanded(pid)) {
+          for (const st of this.subtasksForParentKanban(pid)) {
+            if (st.id) {
+              ids.push(st.id);
+            }
+          }
+        }
+      }
+    }
+    return ids;
+  }
+
+  /** リスト／カンバン一括選択用 */
+  selectableTaskIdsForBulk(): string[] {
+    if (this.viewMode === 'kanban') {
+      return this.kanbanSelectableTaskIds();
+    }
+    if (this.viewMode === 'list') {
+      return this.listSelectableTaskIds();
+    }
+    return [];
+  }
+
+  isAllVisibleSelected(): boolean {
+    const visible = this.selectableTaskIdsForBulk();
+    if (visible.length === 0) {
+      return false;
+    }
+    return visible.every((id) => this.selectedTaskIdSet.has(id));
+  }
+
+  isSomeVisibleSelected(): boolean {
+    const visible = this.selectableTaskIdsForBulk();
+    return visible.some((id) => this.selectedTaskIdSet.has(id));
+  }
+
+  onBulkSelectCheckboxChange(ev: MatCheckboxChange): void {
+    if (ev.checked) {
+      const next = new Set(this.selectedTaskIdSet);
+      for (const id of this.selectableTaskIdsForBulk()) {
+        next.add(id);
+      }
+      this.selectedTaskIdSet = next;
+    } else {
+      this.clearTaskSelection();
+    }
+  }
+
   /** ユーザーがリスト/カレンダー/カンバンを切り替えたとき URL と localStorage を同期 */
   onTaskListViewUiChange(): void {
+    if (this.viewMode !== 'list') {
+      this.clearTaskSelection();
+    }
     this.persistCurrentViewPrefsToStorage();
     const queryParams: Record<string, string | null> = {
       [TASK_RETURN_QUERY.taskView]: this.viewMode,
@@ -660,29 +774,106 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     this.expandedSubtaskParentIds = next;
   }
 
+  /**
+   * 複数選択時: 元の順で非選択を rest にしたあと、ドロップ位置 cur に対応する rest 内の挿入位置。
+   * 元配列の先頭から、ドロップ位置に対応する区間までに含まれる「非選択」の個数（= rest 内の挿入位置）。
+   * 末尾へドロップするとき CDK が currentIndex = length-1 とすることが多いため、区間は cur+1 まで含める。
+   */
+  private insertionIndexInRestForMulti(
+    length: number,
+    selectedIndices: ReadonlySet<number>,
+    cur: number,
+  ): number {
+    const end = Math.max(0, Math.min(cur + 1, length));
+    let k = 0;
+    for (let i = 0; i < end; i++) {
+      if (!selectedIndices.has(i)) {
+        k++;
+      }
+    }
+    return k;
+  }
+
   onTaskDrop(event: CdkDragDrop<{ kind: 'root' | 'sub'; task: Task; parentId?: string }[]>): void {
-    if (!this.canReorder || event.previousIndex === event.currentIndex) {
+    if (!this.canReorder) {
       return;
     }
     const rows = [...this.visibleListRows()];
-    moveItemInArray(rows, event.previousIndex, event.currentIndex);
-    if (!this.isValidListRowOrder(rows)) {
+    const prev = event.previousIndex;
+    const cur = event.currentIndex;
+    if (prev < 0 || prev >= rows.length || cur < 0 || cur > rows.length) {
       return;
     }
-    const moved = event.item.data as { kind: 'root' | 'sub'; task: Task; parentId?: string };
-    if (moved.kind === 'root') {
-      const roots = rows.filter((r) => r.kind === 'root').map((r) => r.task);
-      void this.persistTaskOrder(roots);
-    } else {
-      const pid = moved.parentId;
-      if (!pid) {
+
+    const idxSelected = (i: number) => {
+      const id = rows[i]?.task.id;
+      return !!id && this.selectedTaskIdSet.has(id);
+    };
+
+    const selectedIndices = new Set<number>();
+    for (let i = 0; i < rows.length; i++) {
+      if (idxSelected(i)) {
+        selectedIndices.add(i);
+      }
+    }
+    if (!selectedIndices.has(prev)) {
+      selectedIndices.clear();
+      selectedIndices.add(prev);
+    }
+
+    if (selectedIndices.size === 1) {
+      if (prev === cur) {
         return;
       }
-      const subs = rows
-        .filter((r) => r.kind === 'sub' && r.parentId === pid)
-        .map((r) => r.task);
-      void this.persistSubtaskOrder(pid, subs);
+      const merged = [...rows];
+      moveItemInArray(merged, prev, cur);
+      if (!this.isValidListRowOrder(merged)) {
+        return;
+      }
+      void this.persistFromVisibleRowOrder(merged);
+      return;
     }
+
+    const sortedSel = [...selectedIndices].sort((a, b) => a - b);
+    const block = sortedSel.map((i) => rows[i]);
+    const rest = rows.filter((_, i) => !selectedIndices.has(i));
+    const k = this.insertionIndexInRestForMulti(rows.length, selectedIndices, cur);
+    const merged = [...rest.slice(0, k), ...block, ...rest.slice(k)];
+    if (!this.isValidListRowOrder(merged)) {
+      return;
+    }
+    void this.persistFromVisibleRowOrder(merged);
+  }
+
+  /** リスト表示のフラット行順からルート順・各親の子順を保存 */
+  private persistFromVisibleRowOrder(
+    merged: { kind: 'root' | 'sub'; task: Task; parentId?: string }[],
+  ): void {
+    const roots: Task[] = [];
+    let i = 0;
+    while (i < merged.length) {
+      const row = merged[i];
+      if (row.kind !== 'root' || !row.task.id) {
+        i++;
+        continue;
+      }
+      roots.push(row.task);
+      const pid = row.task.id;
+      i++;
+      const subs: Task[] = [];
+      while (
+        i < merged.length &&
+        merged[i].kind === 'sub' &&
+        merged[i].parentId === pid
+      ) {
+        subs.push(merged[i].task);
+        i++;
+      }
+      if (subs.length > 0) {
+        void this.persistSubtaskOrder(pid, subs);
+      }
+    }
+    void this.persistTaskOrder(roots);
   }
 
   private kanbanBoardDocRef(): ReturnType<typeof doc> | null {
@@ -801,12 +992,45 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   /** ドラッグで列間移動（kanbanColumnId のみ更新）。進捗は変えない */
   onKanbanSubtaskDrop(ev: CdkDragDrop<Task>, parentId: string): void {
-    if (ev.previousIndex === ev.currentIndex) {
+    const arr = [...this.subtasksForParentKanban(parentId)];
+    const prev = ev.previousIndex;
+    const cur = ev.currentIndex;
+    if (prev < 0 || prev >= arr.length || cur < 0 || cur > arr.length) {
       return;
     }
-    const arr = [...this.subtasksForParentKanban(parentId)];
-    moveItemInArray(arr, ev.previousIndex, ev.currentIndex);
-    void this.persistKanbanSubtaskOrder(parentId, arr);
+
+    const idxSel = (i: number) => {
+      const id = arr[i]?.id;
+      return !!id && this.selectedTaskIdSet.has(id);
+    };
+
+    const selectedIndices = new Set<number>();
+    for (let i = 0; i < arr.length; i++) {
+      if (idxSel(i)) {
+        selectedIndices.add(i);
+      }
+    }
+    if (!selectedIndices.has(prev)) {
+      selectedIndices.clear();
+      selectedIndices.add(prev);
+    }
+
+    if (selectedIndices.size === 1) {
+      if (prev === cur) {
+        return;
+      }
+      const single = [...arr];
+      moveItemInArray(single, prev, cur);
+      void this.persistKanbanSubtaskOrder(parentId, single);
+      return;
+    }
+
+    const sortedSel = [...selectedIndices].sort((a, b) => a - b);
+    const block = sortedSel.map((i) => arr[i]);
+    const rest = arr.filter((_, i) => !selectedIndices.has(i));
+    const k = this.insertionIndexInRestForMulti(arr.length, selectedIndices, cur);
+    const merged = [...rest.slice(0, k), ...block, ...rest.slice(k)];
+    void this.persistKanbanSubtaskOrder(parentId, merged);
   }
 
   onKanbanDrop(ev: CdkDragDrop<Task>): void {
@@ -820,29 +1044,95 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       return;
     }
     const state = this.buildKanbanColumnState();
+    const prev = ev.previousIndex;
+    const cur = ev.currentIndex;
+
+    const isSelRoot = (t: Task | undefined): boolean =>
+      !!t?.id && !t.parentTaskId && this.selectedTaskIdSet.has(t.id);
 
     if (fromId === toId) {
       const arr = [...(state[fromId] ?? [])];
-      if (ev.previousIndex === ev.currentIndex) {
+      if (arr.length === 0) {
         return;
       }
-      moveItemInArray(arr, ev.previousIndex, ev.currentIndex);
-      state[fromId] = arr;
-    } else {
-      if (!this.kanbanColumnList.some((c) => c.id === toId)) {
+      if (prev < 0 || prev >= arr.length || cur < 0 || cur > arr.length) {
         return;
       }
-      const fromArr = [...(state[fromId] ?? [])];
-      const toArr = [...(state[toId] ?? [])];
-      const [moved] = fromArr.splice(ev.previousIndex, 1);
+
+      const selectedIndices = new Set<number>();
+      for (let i = 0; i < arr.length; i++) {
+        if (isSelRoot(arr[i])) {
+          selectedIndices.add(i);
+        }
+      }
+      if (!selectedIndices.has(prev)) {
+        selectedIndices.clear();
+        selectedIndices.add(prev);
+      }
+
+      if (selectedIndices.size === 1) {
+        if (prev === cur) {
+          return;
+        }
+        const single = [...arr];
+        moveItemInArray(single, prev, cur);
+        state[fromId] = single;
+        void this.persistKanbanBoardOrder(state);
+        return;
+      }
+
+      const sortedSel = [...selectedIndices].sort((a, b) => a - b);
+      const block = sortedSel.map((i) => arr[i]);
+      const rest = arr.filter((_, i) => !selectedIndices.has(i));
+      const k = this.insertionIndexInRestForMulti(arr.length, selectedIndices, cur);
+      state[fromId] = [...rest.slice(0, k), ...block, ...rest.slice(k)];
+      void this.persistKanbanBoardOrder(state);
+      return;
+    }
+
+    if (!this.kanbanColumnList.some((c) => c.id === toId)) {
+      return;
+    }
+    const fromArr = [...(state[fromId] ?? [])];
+    const toArr = [...(state[toId] ?? [])];
+    if (prev < 0 || prev >= fromArr.length || cur < 0 || cur > toArr.length) {
+      return;
+    }
+
+    const selectedIndices = new Set<number>();
+    for (let i = 0; i < fromArr.length; i++) {
+      if (isSelRoot(fromArr[i])) {
+        selectedIndices.add(i);
+      }
+    }
+    if (!selectedIndices.has(prev)) {
+      selectedIndices.clear();
+      selectedIndices.add(prev);
+    }
+
+    if (selectedIndices.size === 1) {
+      const fa = [...fromArr];
+      const ta = [...toArr];
+      const [moved] = fa.splice(prev, 1);
       if (!moved) {
         return;
       }
       const updated: Task = { ...moved, kanbanColumnId: toId };
-      toArr.splice(Math.min(ev.currentIndex, toArr.length), 0, updated);
-      state[fromId] = fromArr;
-      state[toId] = toArr;
+      ta.splice(Math.min(cur, ta.length), 0, updated);
+      state[fromId] = fa;
+      state[toId] = ta;
+      void this.persistKanbanBoardOrder(state);
+      return;
     }
+
+    const sortedSel = [...selectedIndices].sort((a, b) => a - b);
+    const block = sortedSel
+      .map((i) => fromArr[i])
+      .map((t) => ({ ...t, kanbanColumnId: toId }));
+    const fromRemainder = fromArr.filter((_, i) => !selectedIndices.has(i));
+    const insertAt = Math.min(Math.max(0, cur), toArr.length);
+    state[fromId] = fromRemainder;
+    state[toId] = [...toArr.slice(0, insertAt), ...block, ...toArr.slice(insertAt)];
     void this.persistKanbanBoardOrder(state);
   }
 
@@ -1099,9 +1389,104 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   openTaskContextMenuAt(clientX: number, clientY: number, task: Task): void {
     this.ctxTask = task;
+    const tid = task.id;
+    if (tid && this.selectedTaskIdSet.size >= 2 && this.selectedTaskIdSet.has(tid)) {
+      this.ctxBulkMode = true;
+      this.ctxBulkIds = [...this.selectedTaskIdSet];
+    } else {
+      this.ctxBulkMode = false;
+      this.ctxBulkIds = [];
+    }
     this.contextMenuX = clientX;
     this.contextMenuY = clientY;
     queueMicrotask(() => this.taskCtxMenuTrigger?.openMenu());
+  }
+
+  ctxBulkEditNavigate(): void {
+    const ids = this.ctxBulkIds;
+    if (ids.length < 2) {
+      return;
+    }
+    saveTaskShellScrollPosition();
+    void this.router.navigate(
+      ['/tasks', 'bulk-edit', taskDetailScopeParam(this.taskScope)],
+      {
+        queryParams: { ids: ids.join(','), from: 'list' },
+      },
+    );
+  }
+
+  ctxBulkDeleteFromMenu(): void {
+    const ids = this.ctxBulkIds;
+    if (ids.length < 2) {
+      return;
+    }
+    if (!confirm(`${ids.length}件のタスクを削除しますか？`)) {
+      return;
+    }
+    void this.bulkDeleteTaskIds(ids).then(() => this.clearTaskSelection());
+  }
+
+  ctxDuplicateTasks(): void {
+    const tasks: Task[] = [];
+    if (this.ctxBulkMode && this.ctxBulkIds.length >= 2) {
+      const byId = new Map(this.tasks.map((t) => [t.id, t]));
+      for (const id of this.ctxBulkIds) {
+        const t = byId.get(id);
+        if (t) {
+          tasks.push(t);
+        }
+      }
+    } else if (this.ctxTask?.id) {
+      tasks.push(this.ctxTask);
+    }
+    if (tasks.length === 0) {
+      return;
+    }
+    this.dialog.open(TaskDuplicateDialog, {
+      width: 'min(520px, 92vw)',
+      autoFocus: 'first-tabbable',
+      data: {
+        tasks,
+        taskScope: this.taskScope,
+      },
+    });
+  }
+
+  /** 各 ID について子ツリーを含めて削除（重複はまとめる） */
+  private async bulkDeleteTaskIds(rootIds: string[]): Promise<void> {
+    const all = new Set<string>();
+    for (const id of rootIds) {
+      for (const x of this.collectSubtreeIds(id)) {
+        all.add(x);
+      }
+    }
+    const batch = writeBatch(this.firestore);
+    for (const id of all) {
+      const r = this.taskDocRef(id);
+      if (r) {
+        batch.delete(r);
+      }
+    }
+    try {
+      await batch.commit();
+    } catch (e) {
+      console.error('bulkDeleteTaskIds failed:', e);
+    }
+  }
+
+  private collectSubtreeIds(rootId: string): Set<string> {
+    const out = new Set<string>();
+    const walk = (pid: string) => {
+      out.add(pid);
+      for (const x of this.tasks) {
+        if (x.parentTaskId === pid && x.id) {
+          walk(x.id);
+        }
+      }
+    };
+    walk(rootId);
+    return out;
   }
 
   ctxNavigateDetail(): void {

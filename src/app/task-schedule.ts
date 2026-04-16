@@ -137,6 +137,52 @@ function startOfLocalDay(d: Date): Date {
   return x;
 }
 
+/** 時プルダウン用 0–23 */
+export const TASK_HOUR_OPTIONS: readonly number[] = Object.freeze(
+  Array.from({ length: 24 }, (_, i) => i),
+);
+
+/** 分プルダウン用 0–59（1 分刻み） */
+export const TASK_MINUTE_OPTIONS: readonly number[] = Object.freeze(
+  Array.from({ length: 60 }, (_, i) => i),
+);
+
+/** ローカル日の 0:00:00.000（日付ピッカー値の正規化用） */
+export function startOfLocalDate(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** ローカル時・分（フォーム初期値用） */
+export function localHourAndMinute(d: Date): { hour: number; minute: number } {
+  return { hour: d.getHours(), minute: d.getMinutes() };
+}
+
+/** 日付 + 時・分をローカルの 1 つの Date に */
+export function composeLocalDateTime(
+  datePart: Date | null,
+  hour: number | null | undefined,
+  minute: number | null | undefined,
+): Date | null {
+  if (datePart == null || hour == null || minute == null) {
+    return null;
+  }
+  const h = Number(hour);
+  const mi = Number(minute);
+  if (
+    !Number.isFinite(h) ||
+    !Number.isFinite(mi) ||
+    h < 0 ||
+    h > 23 ||
+    mi < 0 ||
+    mi > 59
+  ) {
+    return null;
+  }
+  const base = startOfLocalDate(datePart);
+  base.setHours(h, mi, 0, 0);
+  return base;
+}
+
 /** `<input type="datetime-local">` 用（ローカル） */
 export function toDatetimeLocalString(d: Date | null): string {
   if (!d || Number.isNaN(d.getTime())) {

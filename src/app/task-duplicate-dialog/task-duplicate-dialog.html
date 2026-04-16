@@ -1,0 +1,44 @@
+<h2 mat-dialog-title>複製先を選んでください</h2>
+
+<mat-dialog-content class="dup-dialog-body">
+  @if (loading) {
+    <p class="dup-muted">読み込み中…</p>
+  } @else if (loadError) {
+    <p class="dup-error">{{ loadError }}</p>
+  } @else if (destinations.length === 0) {
+    <p class="dup-muted">複製先がありません</p>
+  } @else {
+    <ul class="dup-list">
+      @for (d of destinations; track d.key) {
+        <li class="dup-row">
+          <mat-checkbox
+            [checked]="isSelected(d.key)"
+            (change)="toggleDest(d.key, $event.checked)"
+          >
+            {{ d.label }}
+          </mat-checkbox>
+        </li>
+      }
+    </ul>
+  }
+  @if (saveError) {
+    <p class="dup-error dup-error-margin">{{ saveError }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()" [disabled]="saving">キャンセル</button>
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    (click)="complete()"
+    [disabled]="saving || loading || !!loadError || destinations.length === 0"
+  >
+    @if (saving) {
+      複製中…
+    } @else {
+      完了
+    }
+  </button>
+</mat-dialog-actions>

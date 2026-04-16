@@ -1,13 +1,25 @@
-<h2 mat-dialog-title>
-  {{ data.dialogMode === 'subtask' ? '子タスクを追加' : 'タスクを追加' }}
+<h2 mat-dialog-title class="dialog-title-row">
+  <span class="dialog-title-text">
+    {{ data.dialogMode === 'subtask' ? '子タスクを追加' : 'タスクを追加' }}
+  </span>
+  <button mat-button type="button" class="dialog-close-btn" (click)="cancel()">閉じる</button>
 </h2>
 <mat-dialog-content class="dialog-body">
   <app-task-form
+    #taskForm
     [taskScope]="data.taskScope"
     [projectMembers]="data.projectMembers"
     (addTask)="onAdd($event)"
   ></app-task-form>
 </mat-dialog-content>
 <mat-dialog-actions align="end">
-  <button mat-button type="button" (click)="cancel()">閉じる</button>
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    (click)="taskForm.submit()"
+    [disabled]="!taskForm.canSubmit()"
+  >
+    追加
+  </button>
 </mat-dialog-actions>

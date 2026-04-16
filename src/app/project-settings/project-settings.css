@@ -38,6 +38,78 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
+.settings-tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 4px 0 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.settings-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.settings-tab:hover {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.settings-tab[aria-selected='true'] {
+  color: #1976d2;
+  border-bottom-color: #1976d2;
+}
+
+.project-files-panel {
+  margin-bottom: 8px;
+}
+
+.project-files-lead {
+  margin-bottom: 12px;
+}
+
+.project-files-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-files-item {
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  word-break: break-word;
+}
+
+.project-files-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.project-files-link {
+  color: #1565c0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.project-files-link:hover {
+  color: #0d47a1;
+}
+
+.project-files-suffix {
+  color: rgba(0, 0, 0, 0.75);
+}
+
 .rename-row {
   display: flex;
   flex-wrap: wrap;

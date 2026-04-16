@@ -1,0 +1,194 @@
+@if (loading) {
+  <p class="state">読み込み中…</p>
+} @else if (notFound) {
+  <p class="state">タスクを読み込めませんでした。</p>
+  <button mat-flat-button color="primary" type="button" (click)="back()">一覧へ戻る</button>
+} @else {
+  <div class="bulk-header">
+    <button mat-button type="button" class="bulk-back" (click)="back()">← 一覧へ戻る</button>
+    <h1 class="bulk-title">{{ pageTitle() }}</h1>
+  </div>
+
+  <div class="bulk-body">
+    <div class="field">
+      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+        <mat-label>タスク名</mat-label>
+        <textarea matInput readonly [value]="titlesDisplay" rows="8" name="titlesReadonly"></textarea>
+      </mat-form-field>
+    </div>
+
+    <div class="field">
+      <mat-form-field appearance="outline" class="full-width status-field" subscriptSizing="dynamic">
+        <mat-label>進捗</mat-label>
+        <mat-select [(ngModel)]="editStatus" name="taskStatus">
+          <mat-option *ngFor="let o of statusOptions" [value]="o.value">{{ o.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="field">
+      <label class="field-label">色</label>
+      <div class="palette" role="listbox" aria-label="ラベル色">
+        <button
+          type="button"
+          *ngFor="let c of colorChart"
+          class="swatch"
+          [class.swatch-white]="c === '#FFFFFF'"
+          [style.backgroundColor]="c"
+          [class.selected]="editLabel === c"
+          [attr.aria-pressed]="editLabel === c"
+          (click)="editLabel = c"
+        ></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <mat-form-field appearance="outline" class="priority-field" subscriptSizing="dynamic">
+        <mat-label>優先度</mat-label>
+        <mat-select [(ngModel)]="editPriority" name="priority">
+          <mat-option *ngFor="let p of priorityOptions" [value]="p.value">{{ p.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="field">
+      <span class="field-label">予定</span>
+      <mat-radio-group
+        [(ngModel)]="scheduleBulkMode"
+        name="scheduleBulkMode"
+        class="schedule-bulk-group"
+      >
+        <mat-radio-button value="unchanged">変更しない</mat-radio-button>
+        <mat-radio-button value="absolute">日時を指定（絶対）</mat-radio-button>
+        <mat-radio-button value="relative">相対でずらす</mat-radio-button>
+      </mat-radio-group>
+    </div>
+
+    @if (scheduleBulkMode === 'absolute') {
+      <div class="field">
+        <mat-radio-group
+          [(ngModel)]="scheduleEditMode"
+          name="scheduleEditMode"
+          class="schedule-mode-group"
+          (ngModelChange)="onScheduleEditModeChange($event)"
+        >
+          <mat-radio-button value="none">なし</mat-radio-button>
+          <mat-radio-button value="deadline">締切日時</mat-radio-button>
+          <mat-radio-button value="window">開始・終了</mat-radio-button>
+        </mat-radio-group>
+      </div>
+      @if (scheduleEditMode === 'deadline') {
+        <div class="field schedule-datetime-row">
+          <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+            <mat-label>締切日（全件共通）</mat-label>
+            <input
+              matInput
+              [matDatepicker]="dpBulkDeadline"
+              [(ngModel)]="deadlineDate"
+              name="bulkDeadlineDate"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="dpBulkDeadline" />
+            <mat-datepicker #dpBulkDeadline />
+          </mat-form-field>
+          <div class="time-pair" role="group" aria-label="締切の時刻">
+            <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+              <mat-label>時</mat-label>
+              <mat-select [(ngModel)]="deadlineHour" name="bulkDeadlineHour">
+                <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+              <mat-label>分</mat-label>
+              <mat-select [(ngModel)]="deadlineMinute" name="bulkDeadlineMinute">
+                <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </div>
+      }
+      @if (scheduleEditMode === 'window') {
+        <div class="field form-row-window">
+          <div class="schedule-datetime-row">
+            <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+              <mat-label>開始日</mat-label>
+              <input
+                matInput
+                [matDatepicker]="dpBulkStart"
+                [(ngModel)]="startDate"
+                name="bulkStartDate"
+              />
+              <mat-datepicker-toggle matIconSuffix [for]="dpBulkStart" />
+              <mat-datepicker #dpBulkStart />
+            </mat-form-field>
+            <div class="time-pair" role="group" aria-label="開始の時刻">
+              <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+                <mat-label>時</mat-label>
+                <mat-select [(ngModel)]="startHour" name="bulkStartHour">
+                  <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+                <mat-label>分</mat-label>
+                <mat-select [(ngModel)]="startMinute" name="bulkStartMinute">
+                  <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </div>
+          <div class="schedule-datetime-row">
+            <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+              <mat-label>終了日</mat-label>
+              <input matInput [matDatepicker]="dpBulkEnd" [(ngModel)]="endDate" name="bulkEndDate" />
+              <mat-datepicker-toggle matIconSuffix [for]="dpBulkEnd" />
+              <mat-datepicker #dpBulkEnd />
+            </mat-form-field>
+            <div class="time-pair" role="group" aria-label="終了の時刻">
+              <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+                <mat-label>時</mat-label>
+                <mat-select [(ngModel)]="endHour" name="bulkEndHour">
+                  <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+                <mat-label>分</mat-label>
+                <mat-select [(ngModel)]="endMinute" name="bulkEndMinute">
+                  <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </div>
+        </div>
+      }
+    }
+
+    @if (scheduleBulkMode === 'relative') {
+      <div class="field rel-row">
+        <mat-form-field appearance="outline" class="rel-field" subscriptSizing="dynamic">
+          <mat-label>日（±）</mat-label>
+          <input matInput type="number" name="relDays" [(ngModel)]="relDays" step="1" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="rel-field" subscriptSizing="dynamic">
+          <mat-label>時間（±）</mat-label>
+          <input matInput type="number" name="relHours" [(ngModel)]="relHours" step="1" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="rel-field" subscriptSizing="dynamic">
+          <mat-label>分（±）</mat-label>
+          <input matInput type="number" name="relMinutes" [(ngModel)]="relMinutes" step="1" />
+        </mat-form-field>
+      </div>
+      <p class="rel-hint">締切または開始・終了が設定されているタスクだけがずれます。予定なしのタスクは変わりません。</p>
+    }
+
+    @if (saveError) {
+      <p class="error">{{ saveError }}</p>
+    }
+
+    <div class="actions">
+      <button mat-stroked-button type="button" (click)="back()">キャンセル</button>
+      <button mat-flat-button color="primary" type="button" (click)="save()">保存</button>
+      <button mat-flat-button color="warn" type="button" class="bulk-delete-btn" (click)="deleteAll()">
+        タスクを削除
+      </button>
+    </div>
+  </div>
+}

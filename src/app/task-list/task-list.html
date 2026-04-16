@@ -9,11 +9,28 @@
   aria-hidden="true"
 ></button>
 <mat-menu #taskCtxMenu="matMenu">
-  <button mat-menu-item type="button" (click)="ctxNavigateDetail()">詳細</button>
-  @if (ctxTask && !ctxTask.parentTaskId) {
-    <button mat-menu-item type="button" (click)="ctxOpenCreateSubtaskDialog()">子タスクを作成</button>
+  @if (ctxBulkMode && ctxBulkIds.length >= 2) {
+    <button mat-menu-item type="button" (click)="ctxBulkEditNavigate()">
+      {{ ctxBulkIds.length }}件のタスクを編集
+    </button>
+    <button mat-menu-item type="button" (click)="ctxBulkDeleteFromMenu()">
+      {{ ctxBulkIds.length }}件のタスクを削除
+    </button>
   }
-  <button mat-menu-item type="button" (click)="ctxDeleteTask()">タスクを削除</button>
+  <button mat-menu-item type="button" (click)="ctxDuplicateTasks()">
+    @if (ctxBulkMode && ctxBulkIds.length >= 2) {
+      {{ ctxBulkIds.length }}件のタスクを複製
+    } @else {
+      タスクを複製
+    }
+  </button>
+  @if (!(ctxBulkMode && ctxBulkIds.length >= 2)) {
+    <button mat-menu-item type="button" (click)="ctxNavigateDetail()">詳細</button>
+    @if (ctxTask && !ctxTask.parentTaskId) {
+      <button mat-menu-item type="button" (click)="ctxOpenCreateSubtaskDialog()">子タスクを作成</button>
+    }
+    <button mat-menu-item type="button" (click)="ctxDeleteTask()">タスクを削除</button>
+  }
 </mat-menu>
 
 <div class="task-toolbar-wrap">
@@ -203,6 +220,17 @@
     </p>
   }
 }
+@if (viewMode === 'list' || viewMode === 'kanban') {
+  <div class="list-bulk-select-row">
+    <mat-checkbox
+      [checked]="isAllVisibleSelected()"
+      [indeterminate]="isSomeVisibleSelected() && !isAllVisibleSelected()"
+      (change)="onBulkSelectCheckboxChange($event)"
+    >
+      表示中のタスクをすべて選択
+    </mat-checkbox>
+  </div>
+}
 
 @if (viewMode === 'list') {
   <div class="task-list-shell mat-elevation-z1">
@@ -227,6 +255,9 @@
             [showSubtasksToggle]="true"
             [hasSubtasks]="hasChildTasks(task.id)"
             [subtasksExpanded]="isSubtasksExpanded(task.id)"
+            [selectionMode]="true"
+            [selected]="isTaskSelected(task.id)"
+            (selectedChange)="onTaskSelectionChange(task, $event)"
             (toggleSubtasksUi)="onSubtasksToggleForListItem(task)"
             (contextMenuRequest)="openTaskContextMenuAt($event.clientX, $event.clientY, $event.task)"
             (deleteRequested)="onDeleteTaskFromItem($event)"
@@ -246,6 +277,9 @@
                 [projectMembers]="projectMembers"
                 [showDragHandle]="canReorder"
                 [isSubtask]="true"
+                [selectionMode]="true"
+                [selected]="isTaskSelected(st.id)"
+                (selectedChange)="onTaskSelectionChange(st, $event)"
                 (contextMenuRequest)="openTaskContextMenuAt($event.clientX, $event.clientY, $event.task)"
                 (deleteRequested)="onDeleteTaskFromItem($event)"
               ></app-task-list-item>
@@ -294,9 +328,17 @@
                   (contextmenu)="openTaskContextMenu($event, task)"
                 >
                   <div
-                    class="kanban-label-strip kanban-label-strip--with-toggle"
+                    class="kanban-label-strip kanban-label-strip--with-checkbox kanban-label-strip--with-toggle"
                     [style.background-color]="kanbanLabelColor(task)"
+                    (click)="$event.stopPropagation()"
                   >
+                    <mat-checkbox
+                      class="kanban-label-strip-checkbox"
+                      [checked]="isTaskSelected(task.id)"
+                      (change)="onTaskSelectionChange(task, $event.checked)"
+                      (click)="$event.stopPropagation()"
+                      [attr.aria-label]="'選択: ' + (task.title || '（無題）')"
+                    />
                     <button
                       type="button"
                       class="kanban-subtasks-toggle"
@@ -354,9 +396,18 @@
                         (contextmenu)="openTaskContextMenu($event, st)"
                       >
                         <div
-                          class="kanban-label-strip"
+                          class="kanban-label-strip kanban-label-strip--with-checkbox"
                           [style.background-color]="kanbanLabelColor(st)"
-                        ></div>
+                          (click)="$event.stopPropagation()"
+                        >
+                          <mat-checkbox
+                            class="kanban-label-strip-checkbox"
+                            [checked]="isTaskSelected(st.id)"
+                            (change)="onTaskSelectionChange(st, $event.checked)"
+                            (click)="$event.stopPropagation()"
+                            [attr.aria-label]="'選択: ' + (st.title || '（無題）')"
+                          />
+                        </div>
                         <div
                           class="kanban-card-main"
                           [class.done]="st.status === 'done'"

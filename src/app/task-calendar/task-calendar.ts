@@ -10,16 +10,26 @@ import { taskScheduleMode, timestampLikeToDate } from '../task-schedule';
 
 /** 月表示：同一日付に並べるタスクの最大数 */
 export const CALENDAR_MONTH_MAX_PER_DAY = 5;
-/** 週表示：同一日付に並べるタスクの最大数 */
-export const CALENDAR_WEEK_MAX_PER_DAY = 30;
+/** 週表示：タイムラインに載せるウィンドウ予定の上限（日あたり、実質はレーン数に依存） */
+export const CALENDAR_WEEK_MAX_PER_DAY = 80;
 /** 一日表示：表示するタスクの最大数（タイムライン外のオーバーフロー表示用） */
 export const CALENDAR_DAY_MAX = 80;
 
-/** 一日タイムライン：1時間あたりの高さ（px） */
-export const CALENDAR_DAY_TIMELINE_SLOT_PX = 44;
-/** 一日タイムライン：表示する時間帯（0〜23） */
+/** 横タイムライン：時間軸ラベル行の高さ（px） */
+export const CALENDAR_TIMELINE_AXIS_ROW_H_PX = 28;
+/** 横タイムライン：重なりを縦に積む 1 レーンの高さ（px）— 週表示など */
+export const CALENDAR_TIMELINE_LANE_HEIGHT_PX = 34;
+/** 日表示のみ：レーン高（週の約2倍） */
+export const CALENDAR_DAY_VIEW_LANE_HEIGHT_PX = 72;
+/** 日表示：タイムライン帯の最小高さ（px）— 空でも十分な高さを確保 */
+export const CALENDAR_DAY_MIN_TIMELINE_TRACK_HEIGHT_PX = 320;
+/** 表示する時間帯（0〜24 時未満） */
 export const CALENDAR_DAY_TIMELINE_START_HOUR = 0;
 export const CALENDAR_DAY_TIMELINE_END_HOUR = 24;
+
+/** 月セル：チップ 1 段の高さ（px）・5 段分でセル高を固定 */
+export const CALENDAR_MONTH_TASK_CHIP_H_PX = 20;
+export const CALENDAR_MONTH_TASK_GAP_PX = 2;
 
 /** 一日の「締切」枠：締切日時の早い順 */
 export interface DayDeadlineEntry {
@@ -30,17 +40,51 @@ export interface DayDeadlineEntry {
 
 export interface DayTimelineBlock {
   task: Task;
-  topPx: number;
-  heightPx: number;
   rangeLabel: string;
-  /** 重なりグループ内の列（0 ＝ 最左・開始が最も早い列） */
+  /** 当日レンジ内の左端（0〜100%） */
+  leftPct: number;
+  /** 幅（0〜100%） */
+  widthPct: number;
+  /** 重なりグループ内の段（0 ＝ 上） */
   laneIndex: number;
-  /** 同じ重なりグループ内の列数 */
+  /** 同じ重なりグループ内の段数 */
   laneCount: number;
 }
 
 /** カレンダー粒度（TaskList の `calendarGranularity` と共有） */
 export type TaskCalendarGranularity = 'month' | 'week' | 'day';
+
+/** 月表示：日セル用（チップは {@link MonthWeekRow} のオーバーレイに描画） */
+export interface MonthWeekCellModel {
+  date: Date;
+  inMonth: boolean;
+  /** 複数日ウィンドウを除く。表示枠は週のスパン行数に応じて `5 - スパン行` まで */
+  items: Task[];
+  overflow: number;
+}
+
+/** 月表示：週内の複数日ウィンドウの 1 セグメント（オーバーレイ） */
+export interface MonthWeekSpanSegment {
+  task: Task;
+  lane: number;
+  colStart: number;
+  colEnd: number;
+  gridColumn: string;
+  trackId: string;
+}
+
+/** 月表示：1 週（グリッドセル＋タスクオーバーレイ） */
+export interface MonthWeekRow {
+  cells: MonthWeekCellModel[];
+  spanSegments: MonthWeekSpanSegment[];
+  /** スパンに使った行数（最大 {@link CALENDAR_MONTH_MAX_PER_DAY}） */
+  spanRowCount: number;
+  spanStripHeightPx: number;
+  /** スパンと列チップのあいだの隙間（px） */
+  spanGapAfterPx: number;
+  spanGridTemplateRows: string;
+  trackKey: number;
+}
 
 function startOfDay(d: Date): Date {
   const x = new Date(d);
@@ -69,6 +113,32 @@ function compareTasksInCell(a: Task, b: Task): number {
   return (a.title ?? '').localeCompare(b.title ?? '');
 }
 
+/** 開始日と終了日が別カレンダー日のウィンドウ予定 */
+function isMultiDayWindowTask(task: Task): boolean {
+  if (taskScheduleMode(task) !== 'window') {
+    return false;
+  }
+  const s = timestampLikeToDate(task.startAt);
+  const e = timestampLikeToDate(task.endAt);
+  if (!s || !e) {
+    return false;
+  }
+  return dayKey(s) !== dayKey(e);
+}
+
+/**
+ * 月・週の各日セル内：日をまたぐウィンドウ予定を、それ以外より上に並べる。
+ * （各グループ内は優先度→タイトル）
+ */
+function compareTasksInCalendarCell(a: Task, b: Task): number {
+  const aSpan = isMultiDayWindowTask(a);
+  const bSpan = isMultiDayWindowTask(b);
+  if (aSpan !== bSpan) {
+    return aSpan ? -1 : 1;
+  }
+  return compareTasksInCell(a, b);
+}
+
 /** ローカル日の [sod, 翌0時) にクリップした区間。交差しなければ null */
 function clipIntervalToCalendarDay(day: Date, start: Date, end: Date): { start: Date; end: Date } | null {
   const sod = startOfDay(day);
@@ -94,8 +164,6 @@ interface DayTimelineRaw {
   task: Task;
   visStart: number;
   visEnd: number;
-  topPx: number;
-  heightPx: number;
   rangeLabel: string;
 }
 
@@ -259,22 +327,20 @@ export class TaskCalendar {
   readonly maxWeek = CALENDAR_WEEK_MAX_PER_DAY;
   readonly maxDay = CALENDAR_DAY_MAX;
 
-  readonly dayTimelineSlotPx = CALENDAR_DAY_TIMELINE_SLOT_PX;
+  readonly timelineLaneHeightPx = CALENDAR_TIMELINE_LANE_HEIGHT_PX;
+  /** 日表示のウィンドウ予定ブロック用レーン高 */
+  readonly dayViewLaneHeightPx = CALENDAR_DAY_VIEW_LANE_HEIGHT_PX;
+  readonly timelineAxisRowHPx = CALENDAR_TIMELINE_AXIS_ROW_H_PX;
   readonly dayTimelineStartHour = CALENDAR_DAY_TIMELINE_START_HOUR;
   readonly dayTimelineEndHour = CALENDAR_DAY_TIMELINE_END_HOUR;
 
-  /** 一日タイムライン左側の時間ラベル用（例: 0〜23） */
+  /** 横タイムライン上段：0〜23 の時ラベル */
   get dayTimelineHourLabels(): number[] {
     const out: number[] = [];
     for (let h = this.dayTimelineStartHour; h < this.dayTimelineEndHour; h++) {
       out.push(h);
     }
     return out;
-  }
-
-  /** スクロール領域内タイムグリッドの高さ（px） */
-  get dayTimelineGridHeightPx(): number {
-    return (this.dayTimelineEndHour - this.dayTimelineStartHour) * this.dayTimelineSlotPx;
   }
 
   readonly weekdayLabels = ['日', '月', '火', '水', '木', '金', '土'];
@@ -389,7 +455,8 @@ export class TaskCalendar {
   }
 
   /**
-   * 一日の締切タスク（タイムライン上ではなく上枠に表示）。締切日時の早い順。
+   * 一日の締切タスク（内部用・時刻順）。
+   * 表示はタイムライン上のラベル色の縦線（`dayDeadlineLines`）。
    */
   get dayDeadlines(): DayDeadlineEntry[] {
     const sorted = this.viewDayTasksSorted();
@@ -412,17 +479,120 @@ export class TaskCalendar {
     return out;
   }
 
-  /**
-   * 一日タイムライン：予定（開始〜終了）のみ帯で表示。
-   * 日をまたぐ予定はその日の 0:00〜翌0:00 にクリップ。
-   * 時間が重なる予定は列に分割し、開始が早いほど左列。
-   */
-  get dayTimeline(): { blocks: DayTimelineBlock[] } {
-    const sorted = this.viewDayTasksSorted();
+  /** 日表示：締切をタイムライン上の位置（左端%）にマッピング */
+  get dayDeadlineLines(): { task: Task; leftPct: number; timeLabel: string }[] {
+    return this.deadlineLinesForDate(this.viewDate);
+  }
 
+  /** 指定日の締切をタイムライン上の左端%に変換（日・週共通） */
+  private deadlineLinesForDate(dayDate: Date): { task: Task; leftPct: number; timeLabel: string }[] {
     const rangeMin = (this.dayTimelineEndHour - this.dayTimelineStartHour) * 60;
-    const totalPx = this.dayTimelineGridHeightPx;
-    const sod = startOfDay(new Date(this.viewDate));
+    const sod = startOfDay(new Date(dayDate));
+    const out: { task: Task; leftPct: number; timeLabel: string }[] = [];
+    for (const task of this.tasksForDaySorted(dayDate)) {
+      if (taskScheduleMode(task) !== 'deadline') {
+        continue;
+      }
+      const dl = timestampLikeToDate(task.deadline);
+      if (!dl || !sameCalendarDay(dl, dayDate)) {
+        continue;
+      }
+      const minsFromStart =
+        (dl.getTime() - sod.getTime()) / 60000 - this.dayTimelineStartHour * 60;
+      if (minsFromStart < 0 || minsFromStart >= rangeMin) {
+        continue;
+      }
+      out.push({
+        task,
+        leftPct: (minsFromStart / rangeMin) * 100,
+        timeLabel: formatHm(dl),
+      });
+    }
+    out.sort((a, b) => {
+      const ta = timestampLikeToDate(a.task.deadline)?.getTime() ?? 0;
+      const tb = timestampLikeToDate(b.task.deadline)?.getTime() ?? 0;
+      return ta - tb;
+    });
+    return out;
+  }
+
+  /**
+   * 一日タイムライン：時間軸は横向き。予定は帯で表示（重なりは縦レーン）。
+   * 日表示はレーン高を大きくし、帯の最小高さも確保。
+   */
+  get dayTimeline(): { blocks: DayTimelineBlock[]; trackHeightPx: number } {
+    const { blocks, trackHeightPx } = this.computeHorizontalTimeline(
+      this.viewDate,
+      CALENDAR_DAY_VIEW_LANE_HEIGHT_PX,
+    );
+    return {
+      blocks,
+      trackHeightPx: Math.max(trackHeightPx, CALENDAR_DAY_MIN_TIMELINE_TRACK_HEIGHT_PX),
+    };
+  }
+
+  /** 日表示：現在時刻の位置（左端からの%） */
+  get dayNowLineLeftPct(): number | null {
+    return this.nowLineLeftPctForDate(this.viewDate);
+  }
+
+  /**
+   * 週表示：各日 1 行の横タイムライン（日表示と同ロジック）。
+   */
+  get weekTimelineRows(): Array<{
+    date: Date;
+    blocks: DayTimelineBlock[];
+    trackHeightPx: number;
+    nowLineLeftPct: number | null;
+    deadlineLines: { task: Task; leftPct: number; timeLabel: string }[];
+  }> {
+    const start = startOfWeekSunday(this.viewDate);
+    const rows: Array<{
+      date: Date;
+      blocks: DayTimelineBlock[];
+      trackHeightPx: number;
+      nowLineLeftPct: number | null;
+      deadlineLines: { task: Task; leftPct: number; timeLabel: string }[];
+    }> = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      const tl = this.computeHorizontalTimeline(date);
+      rows.push({
+        date,
+        blocks: tl.blocks,
+        trackHeightPx: tl.trackHeightPx,
+        nowLineLeftPct: this.nowLineLeftPctForDate(date),
+        deadlineLines: this.deadlineLinesForDate(date),
+      });
+    }
+    return rows;
+  }
+
+  private nowLineLeftPctForDate(dayDate: Date): number | null {
+    if (!this.isToday(dayDate)) {
+      return null;
+    }
+    const rangeMin = (this.dayTimelineEndHour - this.dayTimelineStartHour) * 60;
+    const now = new Date();
+    const minsFromStart =
+      (now.getHours() - this.dayTimelineStartHour) * 60 + now.getMinutes() + now.getSeconds() / 60;
+    if (minsFromStart < 0 || minsFromStart >= rangeMin) {
+      return null;
+    }
+    return (minsFromStart / rangeMin) * 100;
+  }
+
+  private computeHorizontalTimeline(
+    dayDate: Date,
+    laneHeightPx: number = CALENDAR_TIMELINE_LANE_HEIGHT_PX,
+  ): {
+    blocks: DayTimelineBlock[];
+    trackHeightPx: number;
+  } {
+    const sorted = this.tasksForDaySorted(dayDate);
+    const rangeMin = (this.dayTimelineEndHour - this.dayTimelineStartHour) * 60;
+    const sod = startOfDay(new Date(dayDate));
 
     const raw: DayTimelineRaw[] = [];
 
@@ -435,7 +605,7 @@ export class TaskCalendar {
       if (!s || !e) {
         continue;
       }
-      const clipped = clipIntervalToCalendarDay(this.viewDate, s, e);
+      const clipped = clipIntervalToCalendarDay(dayDate, s, e);
       if (!clipped) {
         continue;
       }
@@ -448,10 +618,8 @@ export class TaskCalendar {
       }
       const visStart = Math.max(0, startMin);
       const visEnd = Math.min(rangeMin, endMin);
-      const topPx = (visStart / rangeMin) * totalPx;
-      const heightPx = Math.max(22, ((visEnd - visStart) / rangeMin) * totalPx);
       const rangeLabel = `${formatHm(clipped.start)}–${formatHm(clipped.end)}`;
-      raw.push({ task, visStart, visEnd, topPx, heightPx, rangeLabel });
+      raw.push({ task, visStart, visEnd, rangeLabel });
     }
 
     const n = raw.length;
@@ -469,78 +637,158 @@ export class TaskCalendar {
 
     const blocks: DayTimelineBlock[] = raw.map((r, i) => {
       const lane = laneByIndex.get(i) ?? { laneIndex: 0, laneCount: 1 };
+      const visStart = r.visStart;
+      const visEnd = r.visEnd;
+      const leftPct = (visStart / rangeMin) * 100;
+      const widthPct = Math.max(
+        0.35,
+        ((Math.min(visEnd, rangeMin) - Math.max(0, visStart)) / rangeMin) * 100,
+      );
       return {
         task: r.task,
-        topPx: r.topPx,
-        heightPx: r.heightPx,
         rangeLabel: r.rangeLabel,
+        leftPct,
+        widthPct,
         laneIndex: lane.laneIndex,
         laneCount: Math.max(1, lane.laneCount),
       };
     });
 
-    blocks.sort((a, b) => a.topPx - b.topPx || a.laneIndex - b.laneIndex || b.heightPx - a.heightPx);
-    return { blocks };
+    blocks.sort(
+      (a, b) => a.leftPct - b.leftPct || a.laneIndex - b.laneIndex || b.widthPct - a.widthPct,
+    );
+
+    const maxLanes = blocks.length === 0 ? 1 : Math.max(...blocks.map((b) => b.laneCount), 1);
+    const trackHeightPx = maxLanes * laneHeightPx;
+    return { blocks, trackHeightPx };
   }
 
-  /** 表示日が今日のとき、現在時刻の水平線位置（px）。タイムライン内相対。 */
-  get dayNowLineTopPx(): number | null {
-    if (!this.isToday(this.viewDate)) {
-      return null;
-    }
-    const now = new Date();
-    const rangeMin = (this.dayTimelineEndHour - this.dayTimelineStartHour) * 60;
-    const totalPx = this.dayTimelineGridHeightPx;
-    const minsFromStart =
-      (now.getHours() - this.dayTimelineStartHour) * 60 + now.getMinutes() + now.getSeconds() / 60;
-    if (minsFromStart < 0 || minsFromStart >= rangeMin) {
-      return null;
-    }
-    return (minsFromStart / rangeMin) * totalPx;
+  private tasksForDaySorted(day: Date): Task[] {
+    const key = dayKey(day);
+    const all = this.tasksByDayKey().get(key) ?? [];
+    return [...all].sort(compareTasksInCalendarCell);
   }
 
   private viewDayTasksSorted(): Task[] {
-    const byDay = this.tasksByDayKey();
-    const key = dayKey(this.viewDate);
-    const all = byDay.get(key) ?? [];
-    return [...all].sort(compareTasksInCell);
+    return this.tasksForDaySorted(this.viewDate);
   }
 
-  get monthWeeks(): { date: Date; inMonth: boolean; items: Task[]; overflow: number }[][] {
+  /**
+   * 月表示：日セルは日付のみ（チップはオーバーレイ）。
+   * タスク表示の縦 5 行は「スパン行」と「単日チップ行」の合算（スパンが k 行なら単日は最大 5-k 行）。
+   */
+  get monthWeekRows(): MonthWeekRow[] {
     const vm = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), 1);
     const weeks = buildMonthWeeks(vm);
     const byDay = this.tasksByDayKey();
     const ym = vm.getMonth();
-    return weeks.map((row) =>
-      row.map((date) => {
+    const multiDayTasks = this.tasks.filter(isMultiDayWindowTask);
+    const barH = CALENDAR_MONTH_TASK_CHIP_H_PX;
+    const barGap = CALENDAR_MONTH_TASK_GAP_PX;
+    const maxRows = this.maxMonth;
+
+    return weeks.map((weekDates, weekIndex) => {
+      const segmentsRaw: { task: Task; colStart: number; colEnd: number }[] = [];
+      for (const task of multiDayTasks) {
+        const s = timestampLikeToDate(task.startAt);
+        const e = timestampLikeToDate(task.endAt);
+        if (!s || !e) {
+          continue;
+        }
+        const sd = startOfDay(s);
+        const ed = startOfDay(e);
+        let colStart = -1;
+        let colEnd = -1;
+        for (let i = 0; i < 7; i++) {
+          const d = startOfDay(weekDates[i]);
+          if (d.getTime() >= sd.getTime() && d.getTime() <= ed.getTime()) {
+            if (colStart === -1) {
+              colStart = i;
+            }
+            colEnd = i;
+          }
+        }
+        if (colStart === -1) {
+          continue;
+        }
+        segmentsRaw.push({ task, colStart, colEnd });
+      }
+
+      segmentsRaw.sort((a, b) => {
+        if (a.colStart !== b.colStart) {
+          return a.colStart - b.colStart;
+        }
+        const wa = a.colEnd - a.colStart;
+        const wb = b.colEnd - b.colStart;
+        if (wa !== wb) {
+          return wb - wa;
+        }
+        return compareTasksInCell(a.task, b.task);
+      });
+
+      const occupied: { colStart: number; colEnd: number }[][] = [];
+      const spanSegments: MonthWeekSpanSegment[] = [];
+      for (const raw of segmentsRaw) {
+        let placed = false;
+        for (let lane = 0; lane < maxRows; lane++) {
+          const ranges = occupied[lane] ?? [];
+          const noOverlap = ranges.every(
+            (x) => raw.colEnd < x.colStart || raw.colStart > x.colEnd,
+          );
+          if (noOverlap) {
+            if (!occupied[lane]) {
+              occupied[lane] = [];
+            }
+            occupied[lane].push({ colStart: raw.colStart, colEnd: raw.colEnd });
+            spanSegments.push({
+              task: raw.task,
+              lane,
+              colStart: raw.colStart,
+              colEnd: raw.colEnd,
+              gridColumn: `${raw.colStart + 1} / ${raw.colEnd + 2}`,
+              trackId: `${raw.task.id ?? raw.task.title}-w${weekIndex}-L${lane}-${raw.colStart}-${raw.colEnd}`,
+            });
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          /* 5 行に収まらないスパンは表示しない（稀な重なり過ぎ） */
+        }
+      }
+
+      const spanRowCount =
+        spanSegments.length === 0
+          ? 0
+          : Math.min(Math.max(...spanSegments.map((s) => s.lane)) + 1, maxRows);
+      const singleDaySlots = Math.max(0, maxRows - spanRowCount);
+      const spanStripHeightPx =
+        spanRowCount === 0 ? 0 : spanRowCount * barH + (spanRowCount - 1) * barGap;
+      const spanGapAfterPx = spanRowCount > 0 && spanRowCount < maxRows ? barGap : 0;
+      const spanGridTemplateRows =
+        spanRowCount === 0 ? 'none' : `repeat(${spanRowCount}, ${barH}px)`;
+
+      const cells: MonthWeekCellModel[] = weekDates.map((date) => {
         const inMonth = date.getMonth() === ym;
         const key = dayKey(date);
         const all = byDay.get(key) ?? [];
-        const sorted = [...all].sort(compareTasksInCell);
-        const cap = this.maxMonth;
-        const items = sorted.slice(0, cap);
-        const overflow = Math.max(0, sorted.length - cap);
+        const sorted = [...all].sort(compareTasksInCalendarCell);
+        const chipCandidates = sorted.filter((t) => !isMultiDayWindowTask(t));
+        const items = chipCandidates.slice(0, singleDaySlots);
+        const overflow = Math.max(0, chipCandidates.length - singleDaySlots);
         return { date, inMonth, items, overflow };
-      }),
-    );
-  }
+      });
 
-  get weekDays(): { date: Date; items: Task[]; overflow: number }[] {
-    const start = startOfWeekSunday(this.viewDate);
-    const byDay = this.tasksByDayKey();
-    const out: { date: Date; items: Task[]; overflow: number }[] = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(start);
-      date.setDate(start.getDate() + i);
-      const key = dayKey(date);
-      const all = byDay.get(key) ?? [];
-      const sorted = [...all].sort(compareTasksInCell);
-      const cap = this.maxWeek;
-      const items = sorted.slice(0, cap);
-      const overflow = Math.max(0, sorted.length - cap);
-      out.push({ date, items, overflow });
-    }
-    return out;
+      return {
+        cells,
+        spanSegments,
+        spanRowCount,
+        spanStripHeightPx,
+        spanGapAfterPx,
+        spanGridTemplateRows,
+        trackKey: startOfDay(weekDates[0]).getTime(),
+      };
+    });
   }
 
   /** 締切・開始終了とも未設定のタスク */

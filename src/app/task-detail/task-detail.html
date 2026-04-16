@@ -104,28 +104,85 @@
       </mat-radio-group>
     </div>
     @if (scheduleEditMode === 'deadline') {
-      <div class="field">
-        <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-          <mat-label>締切日時</mat-label>
+      <div class="field schedule-datetime-row">
+        <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+          <mat-label>締切日</mat-label>
           <input
             matInput
-            type="datetime-local"
-            [(ngModel)]="editDeadlineStr"
-            name="deadlineDt"
+            [matDatepicker]="dpDetailDeadline"
+            [(ngModel)]="deadlineDate"
+            name="deadlineDate"
           />
+          <mat-datepicker-toggle matIconSuffix [for]="dpDetailDeadline" />
+          <mat-datepicker #dpDetailDeadline />
         </mat-form-field>
+        <div class="time-pair" role="group" aria-label="締切の時刻">
+          <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+            <mat-label>時</mat-label>
+            <mat-select [(ngModel)]="deadlineHour" name="deadlineHour">
+              <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+            <mat-label>分</mat-label>
+            <mat-select [(ngModel)]="deadlineMinute" name="deadlineMinute">
+              <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
       </div>
     }
     @if (scheduleEditMode === 'window') {
-      <div class="field schedule-window-row">
-        <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-          <mat-label>開始</mat-label>
-          <input matInput type="datetime-local" [(ngModel)]="editStartStr" name="startDt" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-          <mat-label>終了</mat-label>
-          <input matInput type="datetime-local" [(ngModel)]="editEndStr" name="endDt" />
-        </mat-form-field>
+      <div class="field form-row-window">
+        <div class="schedule-datetime-row">
+          <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+            <mat-label>開始日</mat-label>
+            <input
+              matInput
+              [matDatepicker]="dpDetailStart"
+              [(ngModel)]="startDate"
+              name="startDate"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="dpDetailStart" />
+            <mat-datepicker #dpDetailStart />
+          </mat-form-field>
+          <div class="time-pair" role="group" aria-label="開始の時刻">
+            <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+              <mat-label>時</mat-label>
+              <mat-select [(ngModel)]="startHour" name="startHour">
+                <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+              <mat-label>分</mat-label>
+              <mat-select [(ngModel)]="startMinute" name="startMinute">
+                <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </div>
+        <div class="schedule-datetime-row">
+          <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+            <mat-label>終了日</mat-label>
+            <input matInput [matDatepicker]="dpDetailEnd" [(ngModel)]="endDate" name="endDate" />
+            <mat-datepicker-toggle matIconSuffix [for]="dpDetailEnd" />
+            <mat-datepicker #dpDetailEnd />
+          </mat-form-field>
+          <div class="time-pair" role="group" aria-label="終了の時刻">
+            <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+              <mat-label>時</mat-label>
+              <mat-select [(ngModel)]="endHour" name="endHour">
+                <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+              <mat-label>分</mat-label>
+              <mat-select [(ngModel)]="endMinute" name="endMinute">
+                <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </div>
       </div>
     }
 
@@ -207,30 +264,26 @@
             </div>
           }
         </div>
-        @if (chatAttachments.length) {
-          <ul class="chat-pending-files">
-            @for (f of chatAttachments; track $index) {
-              <li>
-                <span>{{ f.name }}</span>
-                <button mat-button type="button" (click)="removeChatAttachment($index)">削除</button>
-              </li>
-            }
-          </ul>
-        }
         <div class="chat-composer">
-          <label
-            class="chat-attach-label"
+          <input
+            #chatFileInput
+            type="file"
+            multiple
+            class="chat-file-input-hidden"
+            tabindex="-1"
+            aria-hidden="true"
+            (change)="onChatFilesSelected($event)"
+          />
+          <button
+            type="button"
+            class="chat-attach-btn"
             [class.chat-attach-disabled]="sendingChat"
+            [disabled]="sendingChat"
+            (click)="chatFileInput.click()"
             aria-label="ファイルを添付"
           >
-            <input
-              type="file"
-              multiple
-              class="chat-file-input-native"
-              (change)="onChatFilesSelected($event)"
-            />
-            <mat-icon>attach_file</mat-icon>
-          </label>
+            <mat-icon aria-hidden="true">attach_file</mat-icon>
+          </button>
           <mat-form-field appearance="outline" class="chat-input-field" subscriptSizing="dynamic">
             <mat-label>メッセージ</mat-label>
             <textarea
@@ -253,6 +306,16 @@
             送信
           </button>
         </div>
+        @if (chatAttachments.length) {
+          <ul class="chat-pending-files">
+            @for (f of chatAttachments; track $index) {
+              <li>
+                <span>添付ファイル：{{ f.name }}</span>
+                <button mat-button type="button" (click)="removeChatAttachment($index)">削除</button>
+              </li>
+            }
+          </ul>
+        }
         @if (chatSendError) {
           <p class="error chat-error">{{ chatSendError }}</p>
         }

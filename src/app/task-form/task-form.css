@@ -78,8 +78,37 @@
   max-width: 320px;
 }
 
-.form-row-window {
+.schedule-datetime-row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
+  gap: 8px 12px;
+  width: 100%;
+}
+
+.time-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.time-select.time-hour {
+  flex: 0 0 88px;
+  min-width: 72px;
+  max-width: 100px;
+}
+
+.time-select.time-minute {
+  flex: 0 0 88px;
+  min-width: 72px;
+  max-width: 100px;
+}
+
+.form-row-window {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
 
 .palette {

@@ -29,16 +29,39 @@
   margin-top: 4px;
 }
 
-.schedule-window-row {
+.schedule-datetime-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
   align-items: flex-start;
+  gap: 8px 12px;
+  width: 100%;
 }
 
-.schedule-window-row .mat-mdc-form-field {
-  flex: 1 1 220px;
-  min-width: 0;
+.date-field {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.time-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.time-select.time-hour,
+.time-select.time-minute {
+  flex: 0 0 88px;
+  min-width: 72px;
+  max-width: 100px;
+}
+
+.form-row-window {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
 
 .detail-body {
@@ -106,7 +129,7 @@
 .chat-panel {
   border-radius: 8px;
   overflow: hidden;
-  background: #fafafa;
+  background: #dddddd;
 }
 
 .chat-scroll {
@@ -175,9 +198,10 @@
 
 .chat-pending-files {
   margin: 0;
-  padding: 6px 12px 0;
+  padding: 0px 60px;
   list-style: none;
   font-size: 13px;
+  background: #fff;
 }
 
 .chat-pending-files li {
@@ -191,14 +215,25 @@
   display: flex;
   align-items: flex-end;
   gap: 4px;
-  padding: 8px 10px 10px;
+  padding: 10px 10px 0px 10px;
   background: #fff;
-  border-top: 1px solid #eee;
   position: relative;
+  border-top: 1px solid #eee;
 }
 
-/** label + input でネイティブにファイル選択（プログラム click はブラウザによってブロックされやすい） */
-.chat-attach-label {
+.chat-file-input-hidden {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.chat-attach-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -206,28 +241,22 @@
   height: 40px;
   flex-shrink: 0;
   margin-bottom: 2px;
+  padding: 0;
+  border: none;
   border-radius: 50%;
+  background: transparent;
   cursor: pointer;
   color: rgba(0, 0, 0, 0.65);
 }
 
-.chat-attach-label:hover:not(.chat-attach-disabled) {
+.chat-attach-btn:hover:not(:disabled):not(.chat-attach-disabled) {
   background: rgba(0, 0, 0, 0.06);
 }
 
-.chat-attach-label.chat-attach-disabled {
-  pointer-events: none;
+.chat-attach-btn.chat-attach-disabled,
+.chat-attach-btn:disabled {
   opacity: 0.45;
   cursor: default;
-}
-
-.chat-file-input-native {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
 }
 
 .chat-input-field {

@@ -9,9 +9,19 @@
   <div
     class="label-strip"
     [class.label-strip--with-toggle]="showSubtasksToggle"
+    [class.label-strip--with-checkbox]="selectionMode"
     [style.background-color]="labelStripColor()"
     (click)="$event.stopPropagation()"
   >
+    @if (selectionMode) {
+      <mat-checkbox
+        class="label-strip-checkbox"
+        [checked]="selected"
+        (change)="onSelectionCheckboxChange($event)"
+        (click)="$event.stopPropagation()"
+        [attr.aria-label]="'選択: ' + (task.title || '（無題）')"
+      />
+    }
     @if (showSubtasksToggle) {
       <button
         type="button"

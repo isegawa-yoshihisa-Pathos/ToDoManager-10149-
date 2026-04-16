@@ -61,14 +61,16 @@ import type { ProjectMemberRow } from '../../models/project-member';
 import type { Task } from '../../models/task';
 import { UserAvatar } from '../user-avatar/user-avatar';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { TaskActivityLogService } from '../task-activity-log.service';
 import {
-  defaultScheduleDatetimeLocalNow,
-  defaultScheduleDatetimeLocalOneHourLater,
-  fromDatetimeLocalString,
+  TASK_HOUR_OPTIONS,
+  TASK_MINUTE_OPTIONS,
+  composeLocalDateTime,
+  localHourAndMinute,
+  startOfLocalDate,
   taskScheduleModeFromFields,
   timestampLikeToDate,
-  toDatetimeLocalString,
 } from '../task-schedule';
 
 const MAX_CHAT_FILE_BYTES = 8 * 1024 * 1024;
@@ -85,6 +87,7 @@ const MAX_CHAT_FILE_BYTES = 8 * 1024 * 1024;
     MatSelectModule,
     MatIconModule,
     MatRadioModule,
+    MatDatepickerModule,
     UserAvatar,
   ],
   templateUrl: './task-detail.html',
@@ -120,9 +123,17 @@ export class TaskDetail implements OnInit, OnDestroy {
   editPriority = DEFAULT_TASK_PRIORITY;
   /** none | deadline | window — 締切と開始終了は同時に持たない */
   scheduleEditMode: 'none' | 'deadline' | 'window' = 'none';
-  editDeadlineStr = '';
-  editStartStr = '';
-  editEndStr = '';
+  deadlineDate: Date | null = null;
+  deadlineHour = 9;
+  deadlineMinute = 0;
+  startDate: Date | null = null;
+  startHour = 9;
+  startMinute = 0;
+  endDate: Date | null = null;
+  endHour = 9;
+  endMinute = 0;
+  readonly hourOptions = TASK_HOUR_OPTIONS;
+  readonly minuteOptions = TASK_MINUTE_OPTIONS;
   editAssignee = '';
   editStatus: TaskStatus = 'todo';
   /** 読み込み時の進捗（完了日時・ログ用） */
@@ -425,19 +436,43 @@ export class TaskDetail implements OnInit, OnDestroy {
     const mode = taskScheduleModeFromFields(deadline, startAt, endAt);
     if (mode === 'window' && startAt && endAt) {
       this.scheduleEditMode = 'window';
-      this.editStartStr = toDatetimeLocalString(startAt);
-      this.editEndStr = toDatetimeLocalString(endAt);
-      this.editDeadlineStr = '';
+      const s = timestampLikeToDate(startAt)!;
+      const e = timestampLikeToDate(endAt)!;
+      this.startDate = startOfLocalDate(s);
+      const sh = localHourAndMinute(s);
+      this.startHour = sh.hour;
+      this.startMinute = sh.minute;
+      this.endDate = startOfLocalDate(e);
+      const eh = localHourAndMinute(e);
+      this.endHour = eh.hour;
+      this.endMinute = eh.minute;
+      this.deadlineDate = null;
+      this.deadlineHour = 9;
+      this.deadlineMinute = 0;
     } else if (mode === 'deadline' && deadline) {
       this.scheduleEditMode = 'deadline';
-      this.editDeadlineStr = toDatetimeLocalString(deadline);
-      this.editStartStr = '';
-      this.editEndStr = '';
+      const d = timestampLikeToDate(deadline)!;
+      this.deadlineDate = startOfLocalDate(d);
+      const hm = localHourAndMinute(d);
+      this.deadlineHour = hm.hour;
+      this.deadlineMinute = hm.minute;
+      this.startDate = null;
+      this.startHour = 9;
+      this.startMinute = 0;
+      this.endDate = null;
+      this.endHour = 9;
+      this.endMinute = 0;
     } else {
       this.scheduleEditMode = 'none';
-      this.editDeadlineStr = '';
-      this.editStartStr = '';
-      this.editEndStr = '';
+      this.deadlineDate = null;
+      this.deadlineHour = 9;
+      this.deadlineMinute = 0;
+      this.startDate = null;
+      this.startHour = 9;
+      this.startMinute = 0;
+      this.endDate = null;
+      this.endHour = 9;
+      this.endMinute = 0;
     }
     this.editPriority = clampTaskPriority(data['priority']);
     const rawAs = data['assignee'];
@@ -450,17 +485,33 @@ export class TaskDetail implements OnInit, OnDestroy {
     this.loading = false;
   }
 
-  /** 空欄のときだけ現在／1時間後を入れる */
+  formatTimePart(n: number): string {
+    return String(n).padStart(2, '0');
+  }
+
+  /** 空欄のときだけ現在／1時間後を入れる（タスクフォームと同様） */
   onScheduleEditModeChange(mode: string): void {
     const m = mode as 'none' | 'deadline' | 'window';
-    if (m === 'deadline' && !this.editDeadlineStr.trim()) {
-      this.editDeadlineStr = defaultScheduleDatetimeLocalNow();
+    if (m === 'deadline' && !this.deadlineDate) {
+      const now = new Date();
+      this.deadlineDate = startOfLocalDate(now);
+      const hm = localHourAndMinute(now);
+      this.deadlineHour = hm.hour;
+      this.deadlineMinute = hm.minute;
     } else if (m === 'window') {
-      if (!this.editStartStr.trim()) {
-        this.editStartStr = defaultScheduleDatetimeLocalNow();
+      const now = new Date();
+      if (!this.startDate) {
+        this.startDate = startOfLocalDate(now);
+        const hm = localHourAndMinute(now);
+        this.startHour = hm.hour;
+        this.startMinute = hm.minute;
       }
-      if (!this.editEndStr.trim()) {
-        this.editEndStr = defaultScheduleDatetimeLocalOneHourLater();
+      if (!this.endDate) {
+        const end = new Date(now.getTime() + 3600000);
+        this.endDate = startOfLocalDate(end);
+        const hm = localHourAndMinute(end);
+        this.endHour = hm.hour;
+        this.endMinute = hm.minute;
       }
     }
   }
@@ -478,7 +529,7 @@ export class TaskDetail implements OnInit, OnDestroy {
       ...firestoreStatusFields(this.editStatus),
     };
     if (this.scheduleEditMode === 'deadline') {
-      const d = fromDatetimeLocalString(this.editDeadlineStr);
+      const d = composeLocalDateTime(this.deadlineDate, this.deadlineHour, this.deadlineMinute);
       if (d) {
         payload['deadline'] = Timestamp.fromDate(d);
       } else {
@@ -487,8 +538,8 @@ export class TaskDetail implements OnInit, OnDestroy {
       payload['startAt'] = deleteField();
       payload['endAt'] = deleteField();
     } else if (this.scheduleEditMode === 'window') {
-      const s = fromDatetimeLocalString(this.editStartStr);
-      const e = fromDatetimeLocalString(this.editEndStr);
+      const s = composeLocalDateTime(this.startDate, this.startHour, this.startMinute);
+      const e = composeLocalDateTime(this.endDate, this.endHour, this.endMinute);
       if (s && e) {
         if (e.getTime() < s.getTime()) {
           this.saveError = '終了日時は開始日時以降にしてください';
@@ -556,15 +607,34 @@ export class TaskDetail implements OnInit, OnDestroy {
     return name.replace(/[^\w.\-]+/g, '_').slice(0, 180) || 'file';
   }
 
+  /** 同一メッセージ内の複数添付でパスが衝突しないようプレフィックスを付ける */
+  private uniqueChatObjectName(index: number, file: File): string {
+    return `${index}_${Date.now()}_${this.safeFileName(file.name)}`;
+  }
+
+  private formatChatSendError(e: unknown): string {
+    if (e && typeof e === 'object' && 'code' in e) {
+      const code = String((e as { code?: string }).code);
+      if (code === 'storage/unauthorized') {
+        return 'ファイルのアップロードが許可されていません。Firebase Console の Storage ルールで chat/ 配下の書き込みを許可してください。';
+      }
+      if (code === 'storage/unauthenticated') {
+        return 'ログインが必要です。';
+      }
+    }
+    return e instanceof Error ? e.message : '送信に失敗しました';
+  }
+
   onChatFilesSelected(ev: Event): void {
     const input = ev.target as HTMLInputElement;
-    const files = input.files;
+    // value を空にすると FileList も空になるため、先に File を配列へ取り出す
+    const picked = input.files?.length ? Array.from(input.files) : [];
     input.value = '';
-    if (!files?.length) {
+    if (picked.length === 0) {
       return;
     }
     const next = [...this.chatAttachments];
-    for (const f of Array.from(files)) {
+    for (const f of picked) {
       if (f.size > MAX_CHAT_FILE_BYTES) {
         this.chatSendError = `「${f.name}」は 8MB 以下にしてください`;
         return;
@@ -596,8 +666,9 @@ export class TaskDetail implements OnInit, OnDestroy {
     this.sendingChat = true;
     try {
       const attachments: TaskMessageAttachment[] = [];
-      for (const f of this.chatAttachments) {
-        const path = `${this.chatStorageBasePath(msgId)}/${this.safeFileName(f.name)}`;
+      for (let i = 0; i < this.chatAttachments.length; i++) {
+        const f = this.chatAttachments[i]!;
+        const path = `${this.chatStorageBasePath(msgId)}/${this.uniqueChatObjectName(i, f)}`;
         const r = ref(this.storage, path);
         await uploadBytes(r, f, { contentType: f.type || 'application/octet-stream' });
         const url = await getDownloadURL(r);
@@ -617,7 +688,7 @@ export class TaskDetail implements OnInit, OnDestroy {
       this.chatInput = '';
       this.chatAttachments = [];
     } catch (e) {
-      this.chatSendError = e instanceof Error ? e.message : '送信に失敗しました';
+      this.chatSendError = this.formatChatSendError(e);
     } finally {
       this.sendingChat = false;
     }

@@ -35,6 +35,30 @@
   align-items: center;
 }
 
+.label-strip--with-checkbox {
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  padding: 4px 0 2px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.label-strip--with-checkbox.label-strip--with-toggle {
+  justify-content: space-between;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.label-strip-checkbox {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0;
+  transform: scale(0.92);
+  transform-origin: center top;
+}
+
+
 .subtasks-toggle {
   flex: 0 0 auto;
   width: auto;

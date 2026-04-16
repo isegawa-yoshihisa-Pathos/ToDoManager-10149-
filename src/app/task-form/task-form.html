@@ -7,7 +7,6 @@
         placeholder="To do"
         [(ngModel)]="newTask.title"
         name="title"
-        #title="ngModel"
         required
         autofocus
       />
@@ -54,9 +53,6 @@
         <mat-option *ngFor="let p of priorityOptions" [value]="p.value">{{ p.label }}</mat-option>
       </mat-select>
     </mat-form-field>
-    <button mat-flat-button color="primary" type="button" (click)="submit()" [disabled]="title.invalid">
-      追加
-    </button>
   </div>
   <div class="form-row form-row-schedule">
     <span class="schedule-label">予定</span>
@@ -72,23 +68,90 @@
     </mat-radio-group>
   </div>
   @if (scheduleMode === 'deadline') {
-    <div class="form-row">
-      <mat-form-field appearance="outline" class="datetime-field" subscriptSizing="dynamic">
-        <mat-label>締切日時</mat-label>
-        <input matInput type="datetime-local" [(ngModel)]="deadlineStr" name="deadlineStr" />
+    <div class="form-row schedule-datetime-row">
+      <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+        <mat-label>締切日</mat-label>
+        <input
+          matInput
+          [matDatepicker]="dpDeadline"
+          [(ngModel)]="deadlineDate"
+          name="deadlineDate"
+        />
+        <mat-datepicker-toggle matIconSuffix [for]="dpDeadline" />
+        <mat-datepicker #dpDeadline />
       </mat-form-field>
+      <div class="time-pair" role="group" aria-label="締切の時刻">
+        <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+          <mat-label>時</mat-label>
+          <mat-select [(ngModel)]="deadlineHour" name="deadlineHour">
+            <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+          <mat-label>分</mat-label>
+          <mat-select [(ngModel)]="deadlineMinute" name="deadlineMinute">
+            <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
     </div>
   }
   @if (scheduleMode === 'window') {
     <div class="form-row form-row-window">
-      <mat-form-field appearance="outline" class="datetime-field" subscriptSizing="dynamic">
-        <mat-label>開始</mat-label>
-        <input matInput type="datetime-local" [(ngModel)]="startStr" name="startStr" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="datetime-field" subscriptSizing="dynamic">
-        <mat-label>終了</mat-label>
-        <input matInput type="datetime-local" [(ngModel)]="endStr" name="endStr" />
-      </mat-form-field>
+      <div class="schedule-datetime-row">
+        <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+          <mat-label>開始日</mat-label>
+          <input
+            matInput
+            [matDatepicker]="dpStart"
+            [(ngModel)]="startDate"
+            name="startDate"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="dpStart" />
+          <mat-datepicker #dpStart />
+        </mat-form-field>
+        <div class="time-pair" role="group" aria-label="開始の時刻">
+          <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+            <mat-label>時</mat-label>
+            <mat-select [(ngModel)]="startHour" name="startHour">
+              <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+            <mat-label>分</mat-label>
+            <mat-select [(ngModel)]="startMinute" name="startMinute">
+              <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+      <div class="schedule-datetime-row">
+        <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+          <mat-label>終了日</mat-label>
+          <input
+            matInput
+            [matDatepicker]="dpEnd"
+            [(ngModel)]="endDate"
+            name="endDate"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="dpEnd" />
+          <mat-datepicker #dpEnd />
+        </mat-form-field>
+        <div class="time-pair" role="group" aria-label="終了の時刻">
+          <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
+            <mat-label>時</mat-label>
+            <mat-select [(ngModel)]="endHour" name="endHour">
+              <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
+            <mat-label>分</mat-label>
+            <mat-select [(ngModel)]="endMinute" name="endMinute">
+              <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
     </div>
   }
   <div class="palette" role="listbox" aria-label="ラベル色">

@@ -1,0 +1,151 @@
+.state {
+  margin: 1rem;
+}
+
+.bulk-header {
+  margin: 0 1rem 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.bulk-back {
+  flex: 0 0 auto;
+}
+
+.bulk-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.bulk-body {
+  max-width: 560px;
+  margin: 0 1rem 2rem;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.swatch.selected {
+  border-color: rgba(0, 0, 0, 0.45);
+}
+
+.swatch.swatch-white {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.schedule-bulk-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.schedule-mode-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+.schedule-datetime-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+  width: 100%;
+}
+
+.date-field {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.time-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.time-select.time-hour,
+.time-select.time-minute {
+  flex: 0 0 88px;
+  min-width: 72px;
+  max-width: 100px;
+}
+
+.form-row-window {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.rel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rel-field {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.rel-hint {
+  margin: -0.5rem 0 1rem;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.error {
+  color: #c62828;
+  font-size: 14px;
+  margin-bottom: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 1.5rem;
+}
+
+.bulk-delete-btn {
+  margin-left: auto;
+}

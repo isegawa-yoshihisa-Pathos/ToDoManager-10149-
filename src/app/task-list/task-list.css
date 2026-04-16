@@ -234,6 +234,11 @@
   background: rgba(25, 118, 210, 0.08);
 }
 
+.list-bulk-select-row {
+  margin: 0 0 12px;
+  padding: 2px 4px;
+}
+
 .task-list-shell,
 .task-calendar-shell {
   border-radius: 4px;
@@ -402,6 +407,29 @@ app-task-list-item {
   align-items: center;
 }
 
+.kanban-label-strip--with-checkbox {
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  padding: 4px 0 2px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.kanban-label-strip--with-checkbox.kanban-label-strip--with-toggle {
+  justify-content: space-between;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.kanban-label-strip-checkbox {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0;
+  transform: scale(0.92);
+  transform-origin: center top;
+}
+
 .kanban-subtasks-toggle {
   flex: 0 0 auto;
   width: auto;
@@ -445,6 +473,14 @@ app-task-list-item {
   flex: 0 0 6px;
   width: 6px;
   min-width: 6px;
+}
+
+.kanban-sub-card .kanban-label-strip.kanban-label-strip--with-checkbox {
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  padding: 4px 0;
+  justify-content: center;
 }
 
 .kanban-card-main {

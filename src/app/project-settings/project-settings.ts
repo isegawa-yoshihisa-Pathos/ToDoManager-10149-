@@ -2,7 +2,14 @@ import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Firestore, collection, collectionData, doc, getDoc } from '@angular/fire/firestore';
+import {
+  Firestore,
+  collection,
+  collectionData,
+  doc,
+  getDoc,
+  getDocs,
+} from '@angular/fire/firestore';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -11,6 +18,7 @@ import { Subscription } from 'rxjs';
 import { ProjectMembers } from '../project-members/project-members';
 import { AuthService } from '../auth.service';
 import { ProjectService, PROJECT_PENDING_JOIN_REQUESTS } from '../project.service';
+import type { TaskMessageAttachment } from '../../models/task-message';
 
 @Component({
   selector: 'app-project-settings',
@@ -50,6 +58,17 @@ export class ProjectSettings implements OnInit, OnDestroy {
   pendingJoinRequests: { userId: string; email: string }[] = [];
   /** 認証／拒否のどちらか処理中の申請ユーザー ID */
   joinRequestBusyUserId: string | null = null;
+
+  /** メンバー | ファイル */
+  settingsTab: 'members' | 'files' = 'members';
+  filesLoading = false;
+  filesError: string | null = null;
+  projectChatFileRows: {
+    fileName: string;
+    url: string;
+    taskTitle: string;
+    taskId: string;
+  }[] = [];
 
   ngOnInit(): void {
     this.route.paramMap.subscribe((pm) => {
@@ -114,6 +133,78 @@ export class ProjectSettings implements OnInit, OnDestroy {
     this.projectNameEdit = this.projectName;
     this.loading = false;
     this.subscribeJoinRequests();
+    this.settingsTab = 'members';
+    this.projectChatFileRows = [];
+    this.filesError = null;
+    this.filesLoading = false;
+  }
+
+  setSettingsTab(tab: 'members' | 'files'): void {
+    this.settingsTab = tab;
+    if (tab === 'files') {
+      void this.loadProjectChatFiles();
+    }
+  }
+
+  private async loadProjectChatFiles(): Promise<void> {
+    if (!this.projectId || this.notFound) {
+      return;
+    }
+    this.filesLoading = true;
+    this.filesError = null;
+    try {
+      const tasksSnap = await getDocs(
+        collection(this.firestore, 'projects', this.projectId, 'tasks'),
+      );
+      const rows: {
+        fileName: string;
+        url: string;
+        taskTitle: string;
+        taskId: string;
+      }[] = [];
+      await Promise.all(
+        tasksSnap.docs.map(async (taskDoc) => {
+          const taskId = taskDoc.id;
+          const tdata = taskDoc.data() as Record<string, unknown>;
+          const taskTitle =
+            typeof tdata['title'] === 'string' && tdata['title'].trim() !== ''
+              ? tdata['title'].trim()
+              : '（無題）';
+          const msgSnap = await getDocs(
+            collection(this.firestore, 'projects', this.projectId, 'tasks', taskId, 'messages'),
+          );
+          msgSnap.forEach((md) => {
+            const d = md.data() as Record<string, unknown>;
+            const attRaw = d['attachments'];
+            if (!Array.isArray(attRaw)) {
+              return;
+            }
+            for (const a of attRaw) {
+              if (!a || typeof a !== 'object') {
+                continue;
+              }
+              const att = a as TaskMessageAttachment;
+              const url = typeof att.url === 'string' ? att.url.trim() : '';
+              const name = typeof att.name === 'string' ? att.name.trim() : '';
+              if (!url || !name) {
+                continue;
+              }
+              rows.push({ fileName: name, url, taskTitle, taskId });
+            }
+          });
+        }),
+      );
+      rows.sort((a, b) => {
+        const c = a.taskTitle.localeCompare(b.taskTitle, 'ja');
+        return c !== 0 ? c : a.fileName.localeCompare(b.fileName, 'ja');
+      });
+      this.projectChatFileRows = rows;
+    } catch (e) {
+      this.filesError = e instanceof Error ? e.message : '一覧の取得に失敗しました';
+      this.projectChatFileRows = [];
+    } finally {
+      this.filesLoading = false;
+    }
   }
 
   back(): void {

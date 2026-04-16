@@ -23,161 +23,245 @@
           <div class="task-cal-dow-cell">{{ w }}</div>
         }
       </div>
-      @for (week of monthWeeks; track $index) {
-        <div class="task-cal-week-row">
-          @for (cell of week; track cell.date.getTime()) {
+      @for (week of monthWeekRows; track week.trackKey) {
+        <div class="task-cal-month-week">
+          <div class="task-cal-week-row">
+            @for (cell of week.cells; track cell.date.getTime()) {
+              <div
+                class="task-cal-day-cell task-cal-day-cell--month-pick"
+                [class.other-month]="!cell.inMonth"
+                [class.is-today]="isToday(cell.date)"
+                role="button"
+                tabindex="0"
+                [attr.aria-label]="monthDayOpenAriaLabel(cell.date)"
+                (click)="pickMonthDay(cell.date)"
+                (keydown.enter)="pickMonthDay(cell.date)"
+                (keydown.space)="$event.preventDefault(); pickMonthDay(cell.date)"
+              >
+                <div class="task-cal-day-num">{{ cell.date.getDate() }}</div>
+                <div
+                  class="task-cal-day-tasks task-cal-day-tasks--layer-placeholder"
+                  aria-hidden="true"
+                ></div>
+              </div>
+            }
+          </div>
+          <div class="task-cal-month-task-layer">
+            <div class="task-cal-month-layer-date-slot" aria-hidden="true"></div>
             <div
-              class="task-cal-day-cell task-cal-day-cell--month-pick"
-              [class.other-month]="!cell.inMonth"
-              [class.is-today]="isToday(cell.date)"
-              role="button"
-              tabindex="0"
-              [attr.aria-label]="monthDayOpenAriaLabel(cell.date)"
-              (click)="pickMonthDay(cell.date)"
-              (keydown.enter)="pickMonthDay(cell.date)"
-              (keydown.space)="$event.preventDefault(); pickMonthDay(cell.date)"
+              class="task-cal-month-task-body-slot"
+              [class.task-cal-month-task-body-slot--nos]="week.spanStripHeightPx === 0"
             >
-              <div class="task-cal-day-num">{{ cell.date.getDate() }}</div>
-              <div class="task-cal-day-tasks">
-                @for (task of cell.items; track task.id ?? task.title) {
-                  <button
-                    type="button"
-                    class="task-cal-chip"
-                    [style.--label-color]="labelColor(task)"
-                    (click)="$event.stopPropagation(); openTask(task)"
-                    (contextmenu)="onTaskChipContextMenu($event, task)"
+              @if (week.spanStripHeightPx > 0) {
+                <div
+                  class="task-cal-month-span-strip"
+                  [style.height.px]="week.spanStripHeightPx"
+                  [style.marginBottom.px]="week.spanGapAfterPx"
+                >
+                  <div
+                    class="task-cal-month-span-grid"
+                    [style.gridTemplateRows]="week.spanGridTemplateRows"
                   >
-                    <span
-                      class="task-cal-label-strip"
-                      [style.background-color]="labelColor(task)"
-                      aria-hidden="true"
-                    ></span>
-                    <span
-                      class="task-cal-chip-main"
-                      [class.done]="task.status === 'done'"
-                      [class.in-progress]="task.status === 'in_progress'"
+                    @for (seg of week.spanSegments; track seg.trackId) {
+                      <button
+                        type="button"
+                        class="task-cal-span-chip"
+                        [style.gridColumn]="seg.gridColumn"
+                        [style.gridRow]="seg.lane + 1"
+                        [style.--label-color]="labelColor(seg.task)"
+                        [attr.aria-label]="seg.task.title"
+                        (click)="$event.stopPropagation(); openTask(seg.task)"
+                        (contextmenu)="onTaskChipContextMenu($event, seg.task)"
+                      >
+                        <span
+                          class="task-cal-label-strip"
+                          [style.background-color]="labelColor(seg.task)"
+                          aria-hidden="true"
+                        ></span>
+                        <span
+                          class="task-cal-span-chip-main"
+                          [class.done]="seg.task.status === 'done'"
+                          [class.in-progress]="seg.task.status === 'in_progress'"
+                        >
+                          <span
+                            class="task-cal-span-chip-title"
+                            [class.task-cal-title-done]="seg.task.status === 'done'"
+                            >{{ seg.task.title }}</span>
+                        </span>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+              <div class="task-cal-month-col-chips-wrap">
+              @for (cell of week.cells; track cell.date.getTime()) {
+                <div class="task-cal-month-col-chips">
+                  @for (task of cell.items; track task.id ?? task.title) {
+                    <button
+                      type="button"
+                      class="task-cal-chip task-cal-chip--month"
+                      [style.--label-color]="labelColor(task)"
+                      (click)="$event.stopPropagation(); openTask(task)"
+                      (contextmenu)="onTaskChipContextMenu($event, task)"
                     >
                       <span
-                        class="task-cal-chip-title"
-                        [class.task-cal-title-done]="task.status === 'done'"
-                        >{{ task.title }}</span>
-                    </span>
-                  </button>
-                }
-                @if (cell.overflow > 0) {
-                  <div class="task-cal-overflow">他{{ cell.overflow }}件</div>
-                }
+                        class="task-cal-label-strip"
+                        [style.background-color]="labelColor(task)"
+                        aria-hidden="true"
+                      ></span>
+                      <span
+                        class="task-cal-chip-main"
+                        [class.done]="task.status === 'done'"
+                        [class.in-progress]="task.status === 'in_progress'"
+                      >
+                        <span
+                          class="task-cal-chip-title"
+                          [class.task-cal-title-done]="task.status === 'done'"
+                          >{{ task.title }}</span>
+                      </span>
+                    </button>
+                  }
+                  <div
+                    class="task-cal-overflow"
+                    [class.is-empty]="cell.overflow === 0"
+                    [attr.aria-hidden]="cell.overflow === 0 ? 'true' : null"
+                  >
+                    @if (cell.overflow > 0) {
+                      他{{ cell.overflow }}件
+                    }
+                  </div>
+                </div>
+              }
               </div>
             </div>
-          }
+          </div>
         </div>
       }
     </div>
   } @else if (granularity === 'week') {
-    <div class="task-cal-week-wrap">
-      @for (col of weekDays; track col.date.getTime()) {
-        <div class="task-cal-week-col" [class.is-today]="isToday(col.date)">
-          <div class="task-cal-week-head">
-            <span class="task-cal-week-dow">{{ weekdayLabels[col.date.getDay()] }}</span>
-            <span class="task-cal-week-date">{{ col.date.getMonth() + 1 }}/{{ col.date.getDate() }}</span>
+    <div class="task-cal-week-h-wrap">
+      <div class="task-cal-week-h-grid">
+        <div class="task-cal-week-h-corner" aria-hidden="true"></div>
+        <div
+          class="task-cal-h-timeline-ruler"
+          [style.min-height.px]="timelineAxisRowHPx"
+          role="presentation"
+        >
+          @for (h of dayTimelineHourLabels; track h) {
+            <div class="task-cal-h-hour-cell">{{ h }}</div>
+          }
+        </div>
+        @for (row of weekTimelineRows; track row.date.getTime()) {
+          <div class="task-cal-week-h-side" [class.is-today]="isToday(row.date)">
+            <div class="task-cal-week-h-side-label">
+              <span class="task-cal-week-h-dmd">{{ row.date.getMonth() + 1 }}/{{ row.date.getDate() }}</span>
+              <span class="task-cal-week-h-dow">{{ weekdayLabels[row.date.getDay()] }}</span>
+            </div>
           </div>
-          <div class="task-cal-week-body">
-            @for (task of col.items; track task.id ?? task.title) {
-              <button
-                type="button"
-                class="task-cal-chip"
-                [style.--label-color]="labelColor(task)"
-                (click)="openTask(task)"
-                (contextmenu)="onTaskChipContextMenu($event, task)"
-              >
-                <span
-                  class="task-cal-label-strip"
-                  [style.background-color]="labelColor(task)"
-                  aria-hidden="true"
-                ></span>
-                <span
-                  class="task-cal-chip-main"
-                  [class.done]="task.status === 'done'"
-                  [class.in-progress]="task.status === 'in_progress'"
+          <div
+            class="task-cal-h-timeline-track"
+            [style.height.px]="row.trackHeightPx"
+            [class.is-today]="isToday(row.date)"
+          >
+            <div class="task-cal-h-grid-bg" aria-hidden="true"></div>
+            <div class="task-cal-h-markers-layer">
+              @for (dl of row.deadlineLines; track dl.task.id ?? dl.task.title + dl.leftPct) {
+                <button
+                  type="button"
+                  class="task-cal-h-deadline-line"
+                  [style.left.%]="dl.leftPct"
+                  [style.--line-color]="labelColor(dl.task)"
+                  [attr.title]="dl.timeLabel + ' ' + dl.task.title"
+                  [attr.aria-label]="'締切 ' + dl.timeLabel + ' ' + dl.task.title"
+                  (click)="openTask(dl.task)"
+                  (contextmenu)="onTaskChipContextMenu($event, dl.task)"
+                ></button>
+              }
+              @if (row.nowLineLeftPct !== null) {
+                <div class="task-cal-h-now-line" [style.left.%]="row.nowLineLeftPct"></div>
+              }
+            </div>
+            <div class="task-cal-h-blocks-layer">
+              @for (b of row.blocks; track b.task.id ?? b.task.title + b.leftPct + b.laneIndex) {
+                <button
+                  type="button"
+                  class="task-cal-h-block"
+                  [style.--label-color]="labelColor(b.task)"
+                  [style.left.%]="b.leftPct"
+                  [style.width.%]="b.widthPct"
+                  [style.top.px]="b.laneIndex * timelineLaneHeightPx"
+                  [style.height.px]="timelineLaneHeightPx - 3"
+                  (click)="openTask(b.task)"
+                  (contextmenu)="onTaskChipContextMenu($event, b.task)"
                 >
                   <span
-                    class="task-cal-chip-title"
-                    [class.task-cal-title-done]="task.status === 'done'"
-                    >{{ task.title }}</span>
-                </span>
-              </button>
-            }
-            @if (col.overflow > 0) {
-              <div class="task-cal-overflow">他{{ col.overflow }}件</div>
-            }
+                    class="task-cal-label-strip"
+                    [style.background-color]="labelColor(b.task)"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="task-cal-h-block-main"
+                    [class.done]="b.task.status === 'done'"
+                    [class.in-progress]="b.task.status === 'in_progress'"
+                  >
+                    <span class="task-cal-h-block-meta">{{ b.rangeLabel }}</span>
+                    <span
+                      class="task-cal-h-block-title"
+                      [class.task-cal-title-done]="b.task.status === 'done'"
+                      >{{ b.task.title }}</span>
+                  </span>
+                </button>
+              }
+            </div>
           </div>
-        </div>
-      }
+        }
+      </div>
     </div>
   } @else {
     <div class="task-cal-day-wrap" [class.is-today]="isToday(viewDate)">
-      @if (dayDeadlines.length > 0) {
-        <div class="task-cal-day-deadlines">
-          <h3 class="task-cal-day-deadlines-title">締切</h3>
-          <div class="task-cal-day-deadlines-list">
-            @for (d of dayDeadlines; track d.task.id ?? d.task.title + d.at.getTime()) {
-              <button
-                type="button"
-                class="task-cal-chip task-cal-chip-wide task-cal-day-deadline-chip"
-                [style.--label-color]="labelColor(d.task)"
-                (click)="openTask(d.task)"
-                (contextmenu)="onTaskChipContextMenu($event, d.task)"
-              >
-                <span
-                  class="task-cal-label-strip"
-                  [style.background-color]="labelColor(d.task)"
-                  aria-hidden="true"
-                ></span>
-                <span
-                  class="task-cal-chip-main"
-                  [class.done]="d.task.status === 'done'"
-                  [class.in-progress]="d.task.status === 'in_progress'"
-                >
-                  <span class="task-cal-day-deadline-time">{{ d.timeLabel }}</span>
-                  <span
-                    class="task-cal-chip-title"
-                    [class.task-cal-title-done]="d.task.status === 'done'"
-                    >{{ d.task.title }}</span>
-                </span>
-              </button>
-            }
-          </div>
+      <div class="task-cal-h-timeline task-cal-h-timeline--day">
+        <div
+          class="task-cal-h-timeline-ruler"
+          [style.min-height.px]="timelineAxisRowHPx"
+          role="presentation"
+        >
+          @for (h of dayTimelineHourLabels; track h) {
+            <div class="task-cal-h-hour-cell">{{ h }}</div>
+          }
         </div>
-      }
-      <div
-        class="task-cal-day-timeline-scroll"
-        [style.--cal-slot.px]="dayTimelineSlotPx"
-      >
-        <div class="task-cal-day-timeline-inner">
-          <div class="task-cal-day-hours" aria-hidden="true">
-            @for (h of dayTimelineHourLabels; track h) {
-              <div class="task-cal-day-hour-label" [style.height.px]="dayTimelineSlotPx">
-                {{ h }}
-              </div>
-            }
-          </div>
-          <div
-            class="task-cal-day-grid-layer"
-            [style.height.px]="dayTimelineGridHeightPx"
-          >
-            @if (dayNowLineTopPx !== null) {
-              <div class="task-cal-day-now-line" [style.top.px]="dayNowLineTopPx"></div>
-            }
-            <div class="task-cal-day-blocks-track">
-            @for (b of dayTimeline.blocks; track b.task.id ?? b.task.title + b.topPx + b.laneIndex) {
+        <div
+          class="task-cal-h-timeline-track"
+          [style.height.px]="dayTimeline.trackHeightPx"
+          [class.is-today]="isToday(viewDate)"
+        >
+          <div class="task-cal-h-grid-bg" aria-hidden="true"></div>
+          <div class="task-cal-h-markers-layer">
+            @for (dl of dayDeadlineLines; track dl.task.id ?? dl.task.title + dl.leftPct) {
               <button
                 type="button"
-                class="task-cal-day-block"
+                class="task-cal-h-deadline-line"
+                [style.left.%]="dl.leftPct"
+                [style.--line-color]="labelColor(dl.task)"
+                [attr.title]="dl.timeLabel + ' ' + dl.task.title"
+                [attr.aria-label]="'締切 ' + dl.timeLabel + ' ' + dl.task.title"
+                (click)="openTask(dl.task)"
+                (contextmenu)="onTaskChipContextMenu($event, dl.task)"
+              ></button>
+            }
+            @if (dayNowLineLeftPct !== null) {
+              <div class="task-cal-h-now-line" [style.left.%]="dayNowLineLeftPct"></div>
+            }
+          </div>
+          <div class="task-cal-h-blocks-layer">
+            @for (b of dayTimeline.blocks; track b.task.id ?? b.task.title + b.leftPct + b.laneIndex) {
+              <button
+                type="button"
+                class="task-cal-h-block"
                 [style.--label-color]="labelColor(b.task)"
-                [style.top.px]="b.topPx"
-                [style.height.px]="b.heightPx"
-                [style.left.%]="(b.laneIndex / b.laneCount) * 100"
-                [style.width.%]="100 / b.laneCount"
+                [style.left.%]="b.leftPct"
+                [style.width.%]="b.widthPct"
+                [style.top.px]="b.laneIndex * dayViewLaneHeightPx"
+                [style.height.px]="dayViewLaneHeightPx - 3"
                 (click)="openTask(b.task)"
                 (contextmenu)="onTaskChipContextMenu($event, b.task)"
               >
@@ -187,19 +271,18 @@
                   aria-hidden="true"
                 ></span>
                 <span
-                  class="task-cal-day-block-main"
+                  class="task-cal-h-block-main"
                   [class.done]="b.task.status === 'done'"
                   [class.in-progress]="b.task.status === 'in_progress'"
                 >
-                  <span class="task-cal-day-block-meta">{{ b.rangeLabel }}</span>
+                  <span class="task-cal-h-block-meta">{{ b.rangeLabel }}</span>
                   <span
-                    class="task-cal-day-block-title"
+                    class="task-cal-h-block-title"
                     [class.task-cal-title-done]="b.task.status === 'done'"
                     >{{ b.task.title }}</span>
                 </span>
               </button>
             }
-            </div>
           </div>
         </div>
       </div>

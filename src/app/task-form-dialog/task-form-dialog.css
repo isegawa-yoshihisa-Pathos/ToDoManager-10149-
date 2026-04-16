@@ -1,3 +1,21 @@
+.dialog-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.dialog-title-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.dialog-close-btn {
+  flex: 0 0 auto;
+}
+
 .dialog-body {
   min-width: min(92vw, 520px);
   padding-top: 8px;

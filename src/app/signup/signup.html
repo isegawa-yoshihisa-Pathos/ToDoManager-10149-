@@ -4,7 +4,23 @@
       <label class="subtitle">アカウント作成</label>
       <input type="email" placeholder="メールアドレス" [(ngModel)]="email" name="email" autocomplete="email" />
       <input type="text" placeholder="ユーザー名" [(ngModel)]="displayName" name="displayName" />
-      <input type="password" placeholder="パスワード" [(ngModel)]="password" name="password" />
+      <div class="password-row">
+        <input
+          [type]="passwordVisible ? 'text' : 'password'"
+          placeholder="パスワード"
+          [(ngModel)]="password"
+          name="password"
+          autocomplete="new-password"
+        />
+        <button
+          type="button"
+          class="password-toggle"
+          aria-label="押している間だけパスワードを表示"
+          (pointerdown)="onPasswordPeekStart($event)"
+        >
+          👁
+        </button>
+      </div>
     </div>
     <div class="button-container">
       <button type="button" (click)="signUp()">アカウント作成</button>

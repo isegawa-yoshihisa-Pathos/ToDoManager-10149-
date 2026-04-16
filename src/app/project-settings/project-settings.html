@@ -38,70 +38,118 @@
       }
     </div>
 
-    <h2 class="section-title">メンバー</h2>
-    <app-project-members [projectId]="projectId"></app-project-members>
+    <div class="settings-tab-bar" role="tablist" aria-label="プロジェクト設定の区分">
+      <button
+        type="button"
+        class="settings-tab"
+        role="tab"
+        [attr.aria-selected]="settingsTab === 'members'"
+        (click)="setSettingsTab('members')"
+      >
+        メンバー
+      </button>
+      <button
+        type="button"
+        class="settings-tab"
+        role="tab"
+        [attr.aria-selected]="settingsTab === 'files'"
+        (click)="setSettingsTab('files')"
+      >
+        ファイル
+      </button>
+    </div>
 
-    <div class="approval-section">
-      <h2 class="section-title">メンバー承認</h2>
-      <div class="approval-form-row">
-        <mat-form-field appearance="outline" class="approval-email-field" subscriptSizing="dynamic">
-          <mat-label>メールアドレス</mat-label>
-          <input
-            matInput
-            type="email"
-            name="approveEmail"
-            [(ngModel)]="approveEmailInput"
+    @if (settingsTab === 'members') {
+      <h2 class="section-title">メンバー</h2>
+      <app-project-members [projectId]="projectId"></app-project-members>
+
+      <div class="approval-section">
+        <h2 class="section-title">メンバー承認</h2>
+        <div class="approval-form-row">
+          <mat-form-field appearance="outline" class="approval-email-field" subscriptSizing="dynamic">
+            <mat-label>メールアドレス</mat-label>
+            <input
+              matInput
+              type="email"
+              name="approveEmail"
+              [(ngModel)]="approveEmailInput"
+              [disabled]="approveSaving"
+              autocomplete="off"
+            />
+          </mat-form-field>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
             [disabled]="approveSaving"
-            autocomplete="off"
-          />
-        </mat-form-field>
-        <button
-          mat-flat-button
-          color="primary"
-          type="button"
-          [disabled]="approveSaving"
-          (click)="onGrantApprovedEmail()"
-        >
-          認証
-        </button>
-      </div>
-      @if (approveError) {
-        <p class="approval-error">{{ approveError }}</p>
-      }
+            (click)="onGrantApprovedEmail()"
+          >
+            認証
+          </button>
+        </div>
+        @if (approveError) {
+          <p class="approval-error">{{ approveError }}</p>
+        }
 
-      @if (pendingJoinRequests.length) {
-        <div class="join-request-block">
-          <p class="join-request-prompt">アクセスがありました。認証しますか？</p>
-          <ul class="join-request-list">
-            @for (r of pendingJoinRequests; track r.userId) {
-              <li class="join-request-item">
-                <span class="join-request-email">{{ r.email }}</span>
-                <span class="join-request-actions">
-                  <button
-                    mat-stroked-button
-                    color="primary"
-                    type="button"
-                    [disabled]="joinRequestBusyUserId === r.userId"
-                    (click)="onApproveJoinRequest(r.userId)"
-                  >
-                    認証
-                  </button>
-                  <button
-                    mat-stroked-button
-                    color="warn"
-                    type="button"
-                    [disabled]="joinRequestBusyUserId === r.userId"
-                    (click)="onRejectJoinRequest(r.userId)"
-                  >
-                    拒否
-                  </button>
-                </span>
+        @if (pendingJoinRequests.length) {
+          <div class="join-request-block">
+            <p class="join-request-prompt">アクセスがありました。認証しますか？</p>
+            <ul class="join-request-list">
+              @for (r of pendingJoinRequests; track r.userId) {
+                <li class="join-request-item">
+                  <span class="join-request-email">{{ r.email }}</span>
+                  <span class="join-request-actions">
+                    <button
+                      mat-stroked-button
+                      color="primary"
+                      type="button"
+                      [disabled]="joinRequestBusyUserId === r.userId"
+                      (click)="onApproveJoinRequest(r.userId)"
+                    >
+                      認証
+                    </button>
+                    <button
+                      mat-stroked-button
+                      color="warn"
+                      type="button"
+                      [disabled]="joinRequestBusyUserId === r.userId"
+                      (click)="onRejectJoinRequest(r.userId)"
+                    >
+                      拒否
+                    </button>
+                  </span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="project-files-panel">
+        <h2 class="section-title">チャット添付ファイル</h2>
+        <p class="lead project-files-lead">
+          このプロジェクト内のタスクに、チャットで添付されたファイルです。
+        </p>
+        @if (filesLoading) {
+          <p class="state">読み込み中…</p>
+        } @else if (filesError) {
+          <p class="rename-error">{{ filesError }}</p>
+        } @else if (projectChatFileRows.length === 0) {
+          <p class="state">チャット添付ファイルはまだありません。</p>
+        } @else {
+          <ul class="project-files-list">
+            @for (row of projectChatFileRows; track row.taskId + row.url + row.fileName) {
+              <li class="project-files-item">
+                <a [href]="row.url" target="_blank" rel="noopener noreferrer" class="project-files-link">{{
+                  row.fileName
+                }}</a>
+                <span class="project-files-suffix">：タスク名「{{ row.taskTitle }}」</span>
               </li>
             }
           </ul>
-        </div>
-      }
-    </div>
+        }
+      </div>
+    }
 
     <div class="toolbar toolbar-danger">
       <button mat-stroked-button type="button" (click)="onLeaveProject()">プロジェクトを脱退</button>

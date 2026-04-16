@@ -17,10 +17,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import {
-  defaultScheduleDatetimeLocalNow,
-  defaultScheduleDatetimeLocalOneHourLater,
-  fromDatetimeLocalString,
+  TASK_HOUR_OPTIONS,
+  TASK_MINUTE_OPTIONS,
+  composeLocalDateTime,
+  localHourAndMinute,
+  startOfLocalDate,
 } from '../task-schedule';
 import { DEFAULT_TASK_LABEL_COLOR, TASK_COLOR_CHART } from '../task-colors';
 import { DEFAULT_TASK_PRIORITY, TASK_PRIORITY_OPTIONS } from '../task-priority';
@@ -41,6 +44,7 @@ import { UserAvatar } from '../user-avatar/user-avatar';
     MatSelectModule,
     MatIconModule,
     MatRadioModule,
+    MatDatepickerModule,
     UserAvatar,
   ],
   templateUrl: './task-form.html',
@@ -50,6 +54,11 @@ export class TaskForm implements OnInit, OnChanges {
   private readonly auth = inject(AuthService);
 
   ngOnInit() {}
+
+  /** ダイアログ側の「追加」ボタン用（必須タイトルと同等の判定） */
+  canSubmit(): boolean {
+    return (this.newTask.title ?? '').trim().length > 0;
+  }
 
   readonly colorChart = TASK_COLOR_CHART;
   readonly priorityOptions = TASK_PRIORITY_OPTIONS;
@@ -75,9 +84,22 @@ export class TaskForm implements OnInit, OnChanges {
 
   /** 締切と開始終了は同時に持たない */
   scheduleMode: 'none' | 'deadline' | 'window' = 'none';
-  deadlineStr = '';
-  startStr = '';
-  endStr = '';
+  deadlineDate: Date | null = null;
+  deadlineHour = 9;
+  deadlineMinute = 0;
+  startDate: Date | null = null;
+  startHour = 9;
+  startMinute = 0;
+  endDate: Date | null = null;
+  endHour = 9;
+  endMinute = 0;
+
+  readonly hourOptions = TASK_HOUR_OPTIONS;
+  readonly minuteOptions = TASK_MINUTE_OPTIONS;
+
+  formatTimePart(n: number): string {
+    return String(n).padStart(2, '0');
+  }
 
   private emptyTask(): Task {
     return {
@@ -105,27 +127,42 @@ export class TaskForm implements OnInit, OnChanges {
   /** 空欄のときだけ現在／1時間後を入れる（手入力を上書きしない） */
   onScheduleModeChange(mode: string): void {
     const m = mode as 'none' | 'deadline' | 'window';
-    if (m === 'deadline' && !this.deadlineStr.trim()) {
-      this.deadlineStr = defaultScheduleDatetimeLocalNow();
+    if (m === 'deadline' && !this.deadlineDate) {
+      const now = new Date();
+      this.deadlineDate = startOfLocalDate(now);
+      const hm = localHourAndMinute(now);
+      this.deadlineHour = hm.hour;
+      this.deadlineMinute = hm.minute;
     } else if (m === 'window') {
-      if (!this.startStr.trim()) {
-        this.startStr = defaultScheduleDatetimeLocalNow();
+      const now = new Date();
+      if (!this.startDate) {
+        this.startDate = startOfLocalDate(now);
+        const hm = localHourAndMinute(now);
+        this.startHour = hm.hour;
+        this.startMinute = hm.minute;
       }
-      if (!this.endStr.trim()) {
-        this.endStr = defaultScheduleDatetimeLocalOneHourLater();
+      if (!this.endDate) {
+        const end = new Date(now.getTime() + 3600000);
+        this.endDate = startOfLocalDate(end);
+        const hm = localHourAndMinute(end);
+        this.endHour = hm.hour;
+        this.endMinute = hm.minute;
       }
     }
   }
 
   submit(): void {
+    if (!this.canSubmit()) {
+      return;
+    }
     let deadline: Date | null = null;
     let startAt: Date | null = null;
     let endAt: Date | null = null;
     if (this.scheduleMode === 'deadline') {
-      deadline = fromDatetimeLocalString(this.deadlineStr);
+      deadline = composeLocalDateTime(this.deadlineDate, this.deadlineHour, this.deadlineMinute);
     } else if (this.scheduleMode === 'window') {
-      startAt = fromDatetimeLocalString(this.startStr);
-      endAt = fromDatetimeLocalString(this.endStr);
+      startAt = composeLocalDateTime(this.startDate, this.startHour, this.startMinute);
+      endAt = composeLocalDateTime(this.endDate, this.endHour, this.endMinute);
       if (!startAt || !endAt) {
         alert('開始と終了の日時を両方入力してください');
         return;
@@ -153,8 +190,14 @@ export class TaskForm implements OnInit, OnChanges {
     this.addTask.emit(base);
     this.newTask = this.emptyTask();
     this.scheduleMode = 'none';
-    this.deadlineStr = '';
-    this.startStr = '';
-    this.endStr = '';
+    this.deadlineDate = null;
+    this.deadlineHour = 9;
+    this.deadlineMinute = 0;
+    this.startDate = null;
+    this.startHour = 9;
+    this.startMinute = 0;
+    this.endDate = null;
+    this.endHour = 9;
+    this.endMinute = 0;
   }
 }

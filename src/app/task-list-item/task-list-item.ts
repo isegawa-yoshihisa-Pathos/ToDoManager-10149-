@@ -8,6 +8,7 @@ import {
   type TaskStatus,
 } from '../../models/task-status';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxChange, MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { doc, Firestore, updateDoc } from '@angular/fire/firestore';
@@ -29,7 +30,15 @@ import { taskStatusTransitionPatch } from '../task-firestore-mutation';
 
 @Component({
   selector: 'app-task-list-item',
-  imports: [CommonModule, MatButtonModule, MatIconModule, DragDropModule, UserAvatar, MatTooltipModule],
+  imports: [
+    CommonModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatIconModule,
+    DragDropModule,
+    UserAvatar,
+    MatTooltipModule,
+  ],
   templateUrl: './task-list-item.html',
   styleUrl: './task-list-item.css',
 })
@@ -67,6 +76,10 @@ export class TaskListItem implements OnInit {
     task: Task;
   }>();
   @Output() deleteRequested = new EventEmitter<Task>();
+  /** リスト表示で複数選択用 */
+  @Input() selectionMode = false;
+  @Input() selected = false;
+  @Output() selectedChange = new EventEmitter<boolean>();
 
   statusLabel(): string {
     return taskStatusLabel(this.task.status);
@@ -141,7 +154,7 @@ export class TaskListItem implements OnInit {
     }
     if (
       el.closest(
-        'button, a, input, textarea, .drag-handle, .actions, .subtasks-toggle, .label-strip',
+        'button, a, input, textarea, .drag-handle, .actions, .subtasks-toggle, .label-strip, mat-checkbox, .label-strip-checkbox, .mdc-checkbox',
       )
     ) {
       return;
@@ -197,6 +210,10 @@ export class TaskListItem implements OnInit {
     ev.preventDefault();
     ev.stopPropagation();
     this.deleteRequested.emit(this.task);
+  }
+
+  onSelectionCheckboxChange(ev: MatCheckboxChange): void {
+    this.selectedChange.emit(ev.checked);
   }
 
   onRowContextMenu(ev: MouseEvent): void {
