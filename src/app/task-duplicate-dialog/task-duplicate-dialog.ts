@@ -442,8 +442,8 @@ export class TaskDuplicateDialog {
       });
 
       await this.taskActivityLog.logCreate(destScope, {
-        taskId: ref.id,
-        taskTitle: src.title || '（無題）',
+        subjectId: ref.id,
+        subjectTitle: src.title || '（無題）',
       });
     }
   }

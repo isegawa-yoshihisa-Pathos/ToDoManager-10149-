@@ -581,8 +581,8 @@ export class TaskDetail implements OnInit, OnDestroy {
     this.statusAtLoad = this.editStatus;
     try {
       await this.taskActivityLog.logUpdate(taskScopeFromDetailRouteParam(this.scopeParam), {
-        taskId: this.taskId,
-        taskTitle: this.editTitle.trim() || '（無題）',
+        subjectId: this.taskId,
+        subjectTitle: this.editTitle.trim() || '（無題）',
       });
     } catch (e) {
       console.error('task activity log after save failed:', e);

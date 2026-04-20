@@ -65,9 +65,9 @@
           <thead>
             <tr>
               <th scope="col">日時</th>
-              <th scope="col">操作</th>
               <th scope="col">ユーザー</th>
-              <th scope="col">タスク</th>
+              <th scope="col">操作</th>
+              <th scope="col">対象</th>
             </tr>
           </thead>
           <tbody>
@@ -80,9 +80,9 @@
                     —
                   }
                 </td>
-                <td>{{ row.actionLabel }}</td>
                 <td>{{ row.actorDisplayName }}</td>
-                <td class="task-report-cell-title">{{ row.taskTitle }}</td>
+                <td>{{ row.actionLabel }}</td>
+                <td class="task-report-cell-title">{{ row.subjectTitle }}</td>
               </tr>
             } @empty {
               <tr>

@@ -70,8 +70,8 @@ export class TaskReport implements OnInit, OnDestroy {
     action: TaskActivityAction;
     actionLabel: string;
     actorDisplayName: string;
-    taskTitle: string;
-    taskId: string;
+    subjectTitle: string;
+    subjectId: string;
   }[] = [];
 
   ngOnInit(): void {
@@ -120,10 +120,10 @@ export class TaskReport implements OnInit, OnDestroy {
             const at = timestampLikeToDate(data['at']);
             const raw = data['action'];
             const action: TaskActivityAction =
-              raw === 'create' || raw === 'update' || raw === 'delete' ? raw : 'update';
-            const taskTitle =
-              typeof data['taskTitle'] === 'string' ? data['taskTitle'] : '';
-            const taskId = typeof data['taskId'] === 'string' ? data['taskId'] : '';
+              raw === 'create' || raw === 'update' || raw === 'delete' || raw === 'createKanban' || raw === 'updateKanban' || raw === 'deleteKanban' ? raw : 'update';
+            const subjectTitle =
+              typeof data['subjectTitle'] === 'string' ? data['subjectTitle'] : '';
+            const subjectId = typeof data['subjectId'] === 'string' ? data['subjectId'] : '';
             const actorDisplayName =
               typeof data['actorDisplayName'] === 'string' && data['actorDisplayName'].trim() !== ''
                 ? data['actorDisplayName'].trim()
@@ -134,10 +134,15 @@ export class TaskReport implements OnInit, OnDestroy {
               id,
               at,
               action,
-              actionLabel: action === 'create' ? '追加' : action === 'delete' ? '削除' : '編集',
+              actionLabel: action === 'create' ? 'タスクを追加' :
+                           action === 'delete' ? 'タスクを削除' : 
+                           action === 'update' ? 'タスクを編集' : 
+                           action === 'createKanban' ? 'カンバンを追加' :
+                           action === 'updateKanban' ? 'カンバン名を編集' :
+                           action === 'deleteKanban' ? 'カンバンを削除' : '不明な操作',
               actorDisplayName,
-              taskTitle: taskTitle || '（無題）',
-              taskId,
+              subjectTitle: subjectTitle || '（無題）',
+              subjectId,
             };
           }),
         ),

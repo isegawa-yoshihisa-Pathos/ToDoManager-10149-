@@ -71,7 +71,7 @@
 }
 
 .task-report-legend-item--todo .task-report-legend-swatch {
-  background: #d1d1d1;
+  background: #a9ffad;
 }
 
 .task-report-legend-item--in_progress .task-report-legend-swatch {
@@ -79,7 +79,7 @@
 }
 
 .task-report-legend-item--done .task-report-legend-swatch {
-  background: #a9ffad;
+  background: #d1d1d1;
 }
 
 .task-report-legend-count {

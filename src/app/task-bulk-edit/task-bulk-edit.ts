@@ -49,6 +49,12 @@ import {
   timestampLikeToDate,
 } from '../task-schedule';
 
+/**
+ * カスケード削除の 1 件。`getDocs` で取得したドキュメントからタイトルを解決するため
+ * フル {@link Task} より `{ id, title }` の方がログ用途に十分で軽い。
+ */
+type DeleteCascadeEntry = { id: string; title: string };
+
 @Component({
   selector: 'app-task-bulk-edit',
   standalone: true,
@@ -432,8 +438,8 @@ export class TaskBulkEdit implements OnInit {
       if (t.id) {
         try {
           await this.taskActivityLog.logUpdate(scope, {
-            taskId: t.id,
-            taskTitle: t.title || '（無題）',
+            subjectId: t.id,
+            subjectTitle: t.title || '（無題）',
           });
         } catch (e) {
           console.error('task activity log failed:', e);
@@ -450,13 +456,13 @@ export class TaskBulkEdit implements OnInit {
     if (n < 2) {
       return;
     }
-    if (!confirm(`${n}件のタスクを削除しますか？`)) {
+    if (!confirm(`${n}件のタスクを削除しますか？\n選択されていない子タスクも削除されます。`)) {
       return;
     }
     const rootIds = this.loadedTasks.map((t) => t.id).filter((x): x is string => !!x);
-    const allIds = await this.expandDeleteIds(rootIds);
+    const targets = await this.expandDeleteCascadeEntries(rootIds);
     const batch = writeBatch(this.firestore);
-    for (const id of allIds) {
+    for (const { id } of targets) {
       const ref = this.taskDocRef(id);
       if (ref) {
         batch.delete(ref);
@@ -468,19 +474,41 @@ export class TaskBulkEdit implements OnInit {
       this.saveError = e instanceof Error ? e.message : '削除に失敗しました';
       return;
     }
+    const scope = taskScopeFromDetailRouteParam(this.scopeParam);
+    for (const { id, title } of targets) {
+      try {
+        await this.taskActivityLog.logDelete(scope, { subjectId: id, subjectTitle: title });
+      } catch (e) {
+        console.error('task activity log (delete) failed:', e);
+      }
+    }
     this.navigateBack();
   }
 
-  /** 各ルートの子ツリーを含めた削除対象 ID（一覧の一括削除と同様） */
-  private async expandDeleteIds(rootIds: string[]): Promise<string[]> {
+  /**
+   * 各ルートの子ツリーを含めた削除対象を、ログ用タイトル付きで返す。
+   * `getDocs` 1 回のスナップショットから `id → title` を構築するため、子タスクもタイトルが取れる。
+   */
+  private async expandDeleteCascadeEntries(rootIds: string[]): Promise<DeleteCascadeEntry[]> {
     const col = this.tasksCollectionRef();
     if (!col) {
-      return rootIds;
+      const byLoaded = new Map(
+        this.loadedTasks
+          .filter((t): t is Task & { id: string } => !!t.id)
+          .map((t) => [t.id, t] as const),
+      );
+      return rootIds.map((id) => ({
+        id,
+        title: (byLoaded.get(id)?.title ?? '').trim() || '（無題）',
+      }));
     }
     const snap = await getDocs(col);
+    const idToTitle = new Map<string, string>();
     const byParent = new Map<string, string[]>();
     snap.forEach((d) => {
       const data = d.data() as Record<string, unknown>;
+      const rawTitle = typeof data['title'] === 'string' ? data['title'].trim() : '';
+      idToTitle.set(d.id, rawTitle || '（無題）');
       const p =
         typeof data['parentTaskId'] === 'string' && data['parentTaskId'].trim() !== ''
           ? data['parentTaskId'].trim()
@@ -502,7 +530,10 @@ export class TaskBulkEdit implements OnInit {
     for (const r of rootIds) {
       walk(r);
     }
-    return [...out];
+    return [...out].map((id) => ({
+      id,
+      title: idToTitle.get(id) ?? '（無題）',
+    }));
   }
 
   back(): void {

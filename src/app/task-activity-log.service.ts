@@ -8,7 +8,7 @@ import {
 import { AuthService } from './auth.service';
 import type { TaskScope } from './task-scope';
 
-export type TaskActivityAction = 'create' | 'update' | 'delete';
+export type TaskActivityAction = 'create' | 'update' | 'delete' | 'createKanban' | 'updateKanban' | 'deleteKanban';
 
 @Injectable({ providedIn: 'root' })
 export class TaskActivityLogService {
@@ -34,18 +34,18 @@ export class TaskActivityLogService {
 
   async logCreate(
     scope: TaskScope,
-    payload: { taskId: string; taskTitle: string },
+    payload: { subjectId: string; subjectTitle: string },
   ): Promise<void> {
     const uid = this.auth.userId();
     if (!uid) {
       return;
     }
-    const title = payload.taskTitle.trim().slice(0, 500) || '（無題）';
+    const title = payload.subjectTitle.trim().slice(0, 500) || '（無題）';
     try {
       await addDoc(this.logCollectionRef(scope, uid), {
         action: 'create' satisfies TaskActivityAction,
-        taskId: payload.taskId,
-        taskTitle: title,
+        subjectId: payload.subjectId,
+        subjectTitle: title,
         at: serverTimestamp(),
         actorUserId: uid,
         actorDisplayName: this.auth.displayName() ?? uid,
@@ -57,18 +57,18 @@ export class TaskActivityLogService {
 
   async logUpdate(
     scope: TaskScope,
-    payload: { taskId: string; taskTitle: string },
+    payload: { subjectId: string; subjectTitle: string },
   ): Promise<void> {
     const uid = this.auth.userId();
     if (!uid) {
       return;
     }
-    const title = payload.taskTitle.trim().slice(0, 500) || '（無題）';
+    const title = payload.subjectTitle.trim().slice(0, 500) || '（無題）';
     try {
       await addDoc(this.logCollectionRef(scope, uid), {
         action: 'update' satisfies TaskActivityAction,
-        taskId: payload.taskId,
-        taskTitle: title,
+        subjectId: payload.subjectId,
+        subjectTitle: title,
         at: serverTimestamp(),
         actorUserId: uid,
         actorDisplayName: this.auth.displayName() ?? uid,
@@ -80,24 +80,93 @@ export class TaskActivityLogService {
 
   async logDelete(
     scope: TaskScope,
-    payload: { taskId: string; taskTitle: string },
+    payload: { subjectId: string; subjectTitle: string },
   ): Promise<void> {
     const uid = this.auth.userId();
     if (!uid) {
       return;
     }
-    const title = payload.taskTitle.trim().slice(0, 500) || '（無題）';
+    const title = payload.subjectTitle.trim().slice(0, 500) || '（無題）';
     try {
       await addDoc(this.logCollectionRef(scope, uid), {
         action: 'delete' satisfies TaskActivityAction,
-        taskId: payload.taskId,
-        taskTitle: title,
+        subjectId: payload.subjectId,
+        subjectTitle: title,
         at: serverTimestamp(),
         actorUserId: uid,
         actorDisplayName: this.auth.displayName() ?? uid,
       });
     } catch (e) {
       console.error('task activity log (delete) failed:', e);
+    }
+  }
+
+  async logKanbanCreate(
+    scope: TaskScope,
+    payload: { subjectId: string; subjectTitle: string },
+  ): Promise<void> {
+    const uid = this.auth.userId();
+    if (!uid) {
+      return;
+    }
+    const title = payload.subjectTitle.trim().slice(0, 500) || '（無題）';
+    try {
+      await addDoc(this.logCollectionRef(scope, uid), {
+        action: 'createKanban' satisfies TaskActivityAction,
+        subjectId: payload.subjectId,
+        subjectTitle: title,
+        at: serverTimestamp(),
+        actorUserId: uid,
+        actorDisplayName: this.auth.displayName() ?? uid,
+      });
+    } catch (e) {
+      console.error('task activity log (createKanban) failed:', e);
+    }
+  }
+
+  async logKanbanUpdate(
+    scope: TaskScope,
+    payload: { subjectId: string; subjectTitle: string },
+  ): Promise<void> {
+    const uid = this.auth.userId();
+    if (!uid) {
+      return;
+    }
+    const title = payload.subjectTitle.trim().slice(0, 500) || '（無題）';
+    try {
+      await addDoc(this.logCollectionRef(scope, uid), {
+        action: 'updateKanban' satisfies TaskActivityAction,
+        subjectId: payload.subjectId,
+        subjectTitle: title,
+        at: serverTimestamp(),
+        actorUserId: uid,
+        actorDisplayName: this.auth.displayName() ?? uid,
+      });
+    } catch (e) {
+      console.error('task activity log (updateKanban) failed:', e);
+    }
+  }
+
+  async logKanbanDelete(
+    scope: TaskScope,
+    payload: { subjectId: string; subjectTitle: string },
+  ): Promise<void> {
+    const uid = this.auth.userId();
+    if (!uid) {
+      return;
+    }
+    const title = payload.subjectTitle.trim().slice(0, 500) || '（無題）';
+    try {
+      await addDoc(this.logCollectionRef(scope, uid), {
+        action: 'deleteKanban' satisfies TaskActivityAction,
+        subjectId: payload.subjectId,
+        subjectTitle: title,
+        at: serverTimestamp(),
+        actorUserId: uid,
+        actorDisplayName: this.auth.displayName() ?? uid,
+      });
+    } catch (e) {
+      console.error('task activity log (deleteKanban) failed:', e);
     }
   }
 }

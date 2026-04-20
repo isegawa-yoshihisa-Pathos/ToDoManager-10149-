@@ -422,6 +422,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     return !!taskId && this.selectedTaskIdSet.has(taskId);
   }
 
+  /**　親タスクの選択を変更すると子タスクの選択も変更される */
   onTaskSelectionChange(task: Task, selected: boolean): void {
     const id = task.id;
     if (!id) {
@@ -722,8 +723,8 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     payload['updatedAt'] = serverTimestamp();
     void addDoc(col, payload).then((docRef) =>
       this.taskActivityLog.logCreate(this.taskScope, {
-        taskId: docRef.id,
-        taskTitle: task.title,
+        subjectId: docRef.id,
+        subjectTitle: task.title,
       }),
     );
   }
@@ -783,8 +784,8 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     payload['updatedAt'] = serverTimestamp();
     void addDoc(col, payload).then((docRef) =>
       this.taskActivityLog.logCreate(this.taskScope, {
-        taskId: docRef.id,
-        taskTitle: task.title,
+        subjectId: docRef.id,
+        subjectTitle: task.title,
       }),
     );
     const next = new Set(this.expandedSubtaskParentIds);
@@ -894,6 +895,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     void this.persistTaskOrder(roots);
   }
 
+  /** カンバン設定ドキュメント参照 */
   private kanbanBoardDocRef(): ReturnType<typeof doc> | null {
     const uid = this.auth.userId();
     if (!uid) {
@@ -909,6 +911,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     return doc(this.firestore, 'accounts', uid, 'config', `kanban_${scopeKey}`);
   }
 
+  /** カンバン設定ドキュメントを購読 */
   private async subscribeKanbanBoard(): Promise<void> {
     this.kanbanBoardSub?.unsubscribe();
     this.kanbanBoardSub = undefined;
@@ -1203,6 +1206,10 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     );
     try {
       await setDoc(ref, { columns: next }, { merge: true });
+      await this.taskActivityLog.logKanbanUpdate(this.taskScope, {
+        subjectId: col.id,
+        subjectTitle: title,
+      });
     } catch (e) {
       alert(e instanceof Error ? e.message : '更新に失敗しました');
     }
@@ -1236,6 +1243,10 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       return cid === col.id;
     });
     try {
+      await this.taskActivityLog.logKanbanDelete(this.taskScope, {
+        subjectId: col.id,
+        subjectTitle: col.title,
+      });
       const batch = writeBatch(this.firestore);
       for (const t of affected) {
         const tid = t.id;
@@ -1264,6 +1275,10 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     const next = [...this.kanbanColumnList, { id, title }];
     try {
       await setDoc(ref, { columns: next }, { merge: true });
+      await this.taskActivityLog.logKanbanCreate(this.taskScope, {
+        subjectId: id,
+        subjectTitle: title,
+      });
     } catch (e) {
       alert(e instanceof Error ? e.message : '追加に失敗しました');
     }
@@ -1302,8 +1317,8 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     void updateDoc(ref, taskStatusTransitionPatch(next, prev))
       .then(() =>
         this.taskActivityLog.logUpdate(this.taskScope, {
-          taskId: id,
-          taskTitle: task.title,
+          subjectId: id,
+          subjectTitle: task.title,
         }),
       )
       .catch((err) => console.error('kanban status update failed:', err));
@@ -1439,7 +1454,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     if (ids.length < 2) {
       return;
     }
-    if (!confirm(`${ids.length}件のタスクを削除しますか？`)) {
+    if (!confirm(`${ids.length}件のタスクを削除しますか？\n選択されていない子タスクも削除されます。`)) {
       return;
     }
     void this.bulkDeleteTaskIds(ids).then(() => this.clearTaskSelection());
@@ -1479,12 +1494,22 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         all.add(x);
       }
     }
+    const byId = new Map(this.tasks.map((t) => [t.id, t]));
     const batch = writeBatch(this.firestore);
     for (const id of all) {
+      const t = byId.get(id);
+      if (!t) {
+        continue;
+      }
+      const title = t.title.trim() || '（無題）';
+      void this.taskActivityLog.logDelete(this.taskScope, {
+        subjectId: id,
+        subjectTitle: title,
+      });
       const r = this.taskDocRef(id);
       if (r) {
         batch.delete(r);
-      }
+      } 
     }
     try {
       await batch.commit();
@@ -1535,6 +1560,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     this.openSubtaskDialog(t);
   }
 
+  /**右クリックで削除を実行 */
   async ctxDeleteTask(): Promise<void> {
     const t = this.ctxTask;
     if (!t?.id) {
@@ -1545,14 +1571,15 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       return;
     }
     try {await this.taskActivityLog.logDelete(this.taskScope, {
-          taskId: id,
-          taskTitle: t.title || '（無題）',
+          subjectId: id,
+          subjectTitle: t.title || '（無題）',
         });
         await this.deleteTaskCascade(t.id);
       } catch(err) {
         console.error('task delete failed:', err)}
   }
 
+  /**詳細フォームから削除を実行 */
   async onDeleteTaskFromItem(task: Task): Promise<void> {
     const id = task.id;
     if (!id) {
@@ -1562,14 +1589,15 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       return;
     }
     try {await this.taskActivityLog.logDelete(this.taskScope, {
-          taskId: id,
-          taskTitle: task.title || '（無題）',
+          subjectId: id,
+          subjectTitle: task.title || '（無題）',
         });
         await this.deleteTaskCascade(id);
     } catch(err) {
       console.error('task delete failed:', err)}
   }
 
+  /**子タスクを再帰的に削除 */
   private async deleteTaskCascade(rootId: string): Promise<void> {
     const toDelete = new Set<string>([rootId]);
     const walk = (pid: string) => {
@@ -1577,8 +1605,8 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         if (x.parentTaskId === pid && x.id) {
           toDelete.add(x.id);
           void this.taskActivityLog.logDelete(this.taskScope, {
-            taskId: x.id,
-            taskTitle: x.title || '（無題）',
+            subjectId: x.id,
+            subjectTitle: x.title || '（無題）',
           }).catch((err) => console.error('task delete failed:', err));
           walk(x.id);
         }

@@ -96,9 +96,9 @@ export function pieGradientFromBreakdown(
   if (total <= 0) {
     return null;
   }
-  const cTodo = '#d1d1d1';
+  const cTodo = '#a9ffad';
   const cProg = '#f5a37d';
-  const cDone = '#a9ffad';
+  const cDone = '#d1d1d1';
   let start = 0;
   const segs: string[] = [];
   const add = (count: number, color: string) => {

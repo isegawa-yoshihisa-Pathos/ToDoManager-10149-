@@ -139,8 +139,8 @@ export class TaskListItem implements OnInit {
     void updateDoc(ref, taskStatusTransitionPatch(status, prev))
       .then(() =>
         this.taskActivityLog.logUpdate(this.taskScope, {
-          taskId: id,
-          taskTitle: this.task.title,
+          subjectId: id,
+          subjectTitle: this.task.title,
         }),
       )
       .catch((err) => console.error('updateDoc failed:', err));
