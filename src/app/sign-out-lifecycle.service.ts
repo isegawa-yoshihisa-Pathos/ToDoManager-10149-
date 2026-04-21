@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 
 /**
- * グローバルヘッダーからサインアウトする直前に、UserWindow などがセッションを保存できるようにする。
+ヘッダーからサインアウトする直前に、UserWindow などがセッションを保存できるようにする。
  */
 @Injectable({ providedIn: 'root' })
 export class SignOutLifecycleService {

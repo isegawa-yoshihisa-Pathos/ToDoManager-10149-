@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../auth.service';
 import { ProjectService } from '../project.service';
 
@@ -15,7 +17,7 @@ export interface ProjectOpenedPayload {
 @Component({
   selector: 'app-project-hub',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatIconModule, MatTooltipModule],
   templateUrl: './project-hub.html',
   styleUrl: './project-hub.css',
 })
@@ -52,6 +54,10 @@ export class ProjectHub {
     } catch (e) {
       alert(e instanceof Error ? e.message : '作成に失敗しました');
     }
+  }
+
+  generateProjectId(): void {
+    this.createProjectId = Math.random().toString(36).substring(2, 15);
   }
 
   onAddPrivateListClick(): void {

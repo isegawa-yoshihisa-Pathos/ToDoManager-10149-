@@ -228,11 +228,6 @@ export class AuthService {
     await firebaseSignOut(this.auth);
   }
 
-  /**
-   * 参加中プロジェクトからの脱退・`accounts/{uid}` 削除のあと Firebase Auth のユーザーを削除する。
-   * 未承認の参加申請ドキュメントなどはプロジェクト横断のため別途クリーンアップが必要な場合があります。
-   * メール／パスワードの再認証が必須（`auth/requires-recent-login` 回避）。
-   */
   async deleteAccount(currentPassword: string): Promise<void> {
     const user = this.auth.currentUser;
     if (!user || !user.email) {

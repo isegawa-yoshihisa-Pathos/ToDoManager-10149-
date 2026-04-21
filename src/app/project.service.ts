@@ -13,7 +13,6 @@ import {
   serverTimestamp,
   Timestamp,
 } from '@angular/fire/firestore';
-import { isValidProjectIdChars } from './nav-tab-order';
 
 export interface ProjectMembershipRow {
   projectId: string;
@@ -46,7 +45,7 @@ export class ProjectService {
     if (!id) {
       throw new Error('プロジェクトIDを入力してください');
     }
-    if (!isValidProjectIdChars(id)) {
+    if (!/^[A-Za-z0-9]+$/.test(id)) {
       throw new Error('プロジェクトIDは半角英数字のみ使用できます');
     }
     if (id.length < 2 || id.length > 64) {

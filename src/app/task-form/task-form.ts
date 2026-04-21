@@ -124,7 +124,7 @@ export class TaskForm implements OnInit, OnChanges {
     }
   }
 
-  /** 空欄のときだけ現在／1時間後を入れる（手入力を上書きしない） */
+  /** 空欄のときだけ現在／1時間後を入れる */
   onScheduleModeChange(mode: string): void {
     const m = mode as 'none' | 'deadline' | 'window';
     if (m === 'deadline' && !this.deadlineDate) {

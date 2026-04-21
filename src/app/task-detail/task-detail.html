@@ -96,7 +96,7 @@
         [(ngModel)]="scheduleEditMode"
         name="scheduleEditMode"
         class="schedule-mode-group"
-        (ngModelChange)="onScheduleEditModeChange($event)"
+        (ngModelChange)="onScheduleModeChange($event)"
       >
         <mat-radio-button value="none">なし</mat-radio-button>
         <mat-radio-button value="deadline">締切日時</mat-radio-button>
@@ -142,6 +142,7 @@
               [matDatepicker]="dpDetailStart"
               [(ngModel)]="startDate"
               name="startDate"
+              (ngModelChange)="onTimeWindowChange()"
             />
             <mat-datepicker-toggle matIconSuffix [for]="dpDetailStart" />
             <mat-datepicker #dpDetailStart />
@@ -149,13 +150,13 @@
           <div class="time-pair" role="group" aria-label="開始の時刻">
             <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
               <mat-label>時</mat-label>
-              <mat-select [(ngModel)]="startHour" name="startHour">
+              <mat-select [(ngModel)]="startHour" name="startHour" (ngModelChange)="onTimeWindowChange()">
                 <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
               </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
               <mat-label>分</mat-label>
-              <mat-select [(ngModel)]="startMinute" name="startMinute">
+              <mat-select [(ngModel)]="startMinute" name="startMinute" (ngModelChange)="onTimeWindowChange()">
                 <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
               </mat-select>
             </mat-form-field>

@@ -36,8 +36,3 @@ export function mergeTabKeys(storedOrder: string[], allKeys: Set<string>): strin
   result.push(...sortAppendedKeys(missing));
   return result;
 }
-
-/** 半角英数字のみ（プロジェクトID） */
-export function isValidProjectIdChars(id: string): boolean {
-  return /^[A-Za-z0-9]+$/.test(id);
-}

@@ -12,6 +12,7 @@ import {
   writeBatch,
   Timestamp,
   deleteField,
+  collectionData,
 } from '@angular/fire/firestore';
 import { combineLatest } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,6 +22,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatIconModule } from '@angular/material/icon';
+import { map } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { DEFAULT_TASK_LABEL_COLOR, TASK_COLOR_CHART } from '../task-colors';
 import {
@@ -37,6 +40,8 @@ import {
   type TaskStatus,
 } from '../../models/task-status';
 import type { Task } from '../../models/task';
+import type { ProjectMemberRow } from '../../models/project-member';
+import { UserAvatar } from '../user-avatar/user-avatar';
 import { TaskActivityLogService } from '../task-activity-log.service';
 import { taskStatusTransitionPatch } from '../task-firestore-mutation';
 import {
@@ -68,6 +73,7 @@ type DeleteCascadeEntry = { id: string; title: string };
     MatRadioModule,
     MatDatepickerModule,
     MatIconModule,
+    UserAvatar,
   ],
   templateUrl: './task-bulk-edit.html',
   styleUrl: './task-bulk-edit.css',
@@ -81,6 +87,7 @@ export class TaskBulkEdit implements OnInit {
   private readonly projectSession = inject(ProjectSessionService);
   private readonly taskActivityLog = inject(TaskActivityLogService);
 
+  readonly assigneeNone = '';
   readonly colorChart = TASK_COLOR_CHART;
   readonly priorityOptions = TASK_PRIORITY_OPTIONS;
   readonly statusOptions = TASK_STATUS_OPTIONS;
@@ -95,6 +102,10 @@ export class TaskBulkEdit implements OnInit {
 
   titlesDisplay = '';
 
+  projectMembers: ProjectMemberRow[] = [];
+  private membersSub?: Subscription;
+
+  editAssignee = '';
   editLabel: string = DEFAULT_TASK_LABEL_COLOR;
   editPriority = DEFAULT_TASK_PRIORITY;
   editStatus: TaskStatus = 'todo';
@@ -127,8 +138,49 @@ export class TaskBulkEdit implements OnInit {
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean);
+        this.subscribeProjectMembers();
         void this.loadTasks();
       });
+  }
+
+  private subscribeProjectMembers(): void {
+    this.membersSub?.unsubscribe();
+    this.membersSub = undefined;
+    this.projectMembers = [];
+    if (this.scopeParam === 'private' || this.scopeParam.startsWith('pl-') || !this.scopeParam) {
+      return;
+    }
+    const refCol = collection(this.firestore, 'projects', this.scopeParam, 'members');
+    this.membersSub = collectionData(refCol, { idField: 'id' })
+      .pipe(
+        map((rows) =>
+          (rows as Record<string, unknown>[]).map((data) => {
+            const id = String(data['id'] ?? '');
+            const displayName =
+              typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
+                ? data['displayName'].trim()
+                : typeof data['username'] === 'string' && data['username'].trim() !== ''
+                  ? data['username'].trim()
+                  : id;
+            const avatarUrl =
+              typeof data['avatarUrl'] === 'string' && data['avatarUrl'].trim() !== ''
+                ? data['avatarUrl'].trim()
+                : null;
+            return { userId: id, displayName, avatarUrl };
+          }),
+        ),
+      )
+      .subscribe((members) => {
+        this.projectMembers = members.filter((m) => m.userId);
+      });
+  }
+
+  assigneeSelectedMember(): ProjectMemberRow | null {
+    const id = this.editAssignee?.trim();
+    if (!id) {
+      return null;
+    }
+    return this.projectMembers.find((m) => m.userId === id) ?? null;
   }
 
   private tasksCollectionRef() {
@@ -285,8 +337,11 @@ export class TaskBulkEdit implements OnInit {
     return String(n).padStart(2, '0');
   }
 
-  /** 一括・絶対指定時の予定モード変更（タスクフォームと同様の初期値） */
-  onScheduleEditModeChange(mode: string): void {
+   isProjectTaskScope(): boolean {
+    return this.scopeParam !== 'private' && !this.scopeParam.startsWith('pl-');
+  }
+
+  onScheduleModeChange(mode: string): void {
     const m = mode as 'none' | 'deadline' | 'window';
     if (m === 'deadline' && !this.deadlineDate) {
       const now = new Date();
@@ -310,6 +365,17 @@ export class TaskBulkEdit implements OnInit {
         this.endMinute = hm.minute;
       }
     }
+  }
+
+  onTimeWindowChange(): void {
+    const baseTime = new Date(this.startDate!.getTime());
+    baseTime.setHours(this.startHour, this.startMinute, 0, 0);
+
+    const end = new Date(baseTime.getTime() + 3600000);
+    this.endDate = startOfLocalDate(end);
+    const hm = localHourAndMinute(end);
+    this.endHour = hm.hour;
+    this.endMinute = hm.minute;
   }
 
   private relDeltaMs(): number {
@@ -568,7 +634,10 @@ export class TaskBulkEdit implements OnInit {
       [TASK_RETURN_QUERY.taskView]: taskView,
       [TASK_RETURN_QUERY.cal]: calOut,
     };
-    void this.router.navigate(['/user-window'], { queryParams });
+    const listUrl = this.scopeParam === 'private' ? `private/default` :
+                this.scopeParam.startsWith('pl-') ? `private/${this.scopeParam.slice(3)}` :
+                                                    `project/${this.scopeParam}`;
+    void this.router.navigate([`/user-window/${listUrl}`], { queryParams });
   }
 
   pageTitle(): string {

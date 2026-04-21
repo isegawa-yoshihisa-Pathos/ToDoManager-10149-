@@ -42,6 +42,45 @@
       </div>
     </div>
 
+    @if (isProjectTaskScope()) {
+      <div class="field">
+        <mat-form-field appearance="outline" class="assignee-field" subscriptSizing="dynamic">
+          <mat-label>担当者</mat-label>
+          <mat-select [(ngModel)]="editAssignee" name="assignee" panelClass="assignee-select-panel">
+            <mat-select-trigger class="assignee-select-trigger">
+              @if (editAssignee === assigneeNone || !editAssignee) {
+                <span>未割り当て</span>
+              } @else if (assigneeSelectedMember(); as sm) {
+                <span class="assignee-select-trigger-row">
+                  <app-user-avatar
+                    [userId]="sm.userId"
+                    [displayName]="sm.displayName"
+                    [avatarUrl]="sm.avatarUrl"
+                    size="sm"
+                  />
+                  <span>{{ sm.displayName }}</span>
+                </span>
+              } @else {
+                <span>{{ editAssignee }}</span>
+              }
+            </mat-select-trigger>
+            <mat-option [value]="assigneeNone">未割り当て</mat-option>
+            <mat-option *ngFor="let m of projectMembers" [value]="m.userId" class="assignee-option-row">
+              <span class="assignee-option-inner">
+                <app-user-avatar
+                  [userId]="m.userId"
+                  [displayName]="m.displayName"
+                  [avatarUrl]="m.avatarUrl"
+                  size="sm"
+                />
+                <span>{{ m.displayName }}</span>
+              </span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    }
+
     <div class="field">
       <mat-form-field appearance="outline" class="priority-field" subscriptSizing="dynamic">
         <mat-label>優先度</mat-label>
@@ -70,7 +109,7 @@
           [(ngModel)]="scheduleEditMode"
           name="scheduleEditMode"
           class="schedule-mode-group"
-          (ngModelChange)="onScheduleEditModeChange($event)"
+          (ngModelChange)="onScheduleModeChange($event)"
         >
           <mat-radio-button value="none">なし</mat-radio-button>
           <mat-radio-button value="deadline">締切日時</mat-radio-button>
@@ -116,6 +155,7 @@
                 [matDatepicker]="dpBulkStart"
                 [(ngModel)]="startDate"
                 name="bulkStartDate"
+                (ngModelChange)="onTimeWindowChange()"
               />
               <mat-datepicker-toggle matIconSuffix [for]="dpBulkStart" />
               <mat-datepicker #dpBulkStart />
@@ -123,13 +163,13 @@
             <div class="time-pair" role="group" aria-label="開始の時刻">
               <mat-form-field appearance="outline" class="time-select time-hour" subscriptSizing="dynamic">
                 <mat-label>時</mat-label>
-                <mat-select [(ngModel)]="startHour" name="bulkStartHour">
+                <mat-select [(ngModel)]="startHour" name="bulkStartHour" (ngModelChange)="onTimeWindowChange()">
                   <mat-option *ngFor="let h of hourOptions" [value]="h">{{ formatTimePart(h) }}</mat-option>
                 </mat-select>
               </mat-form-field>
               <mat-form-field appearance="outline" class="time-select time-minute" subscriptSizing="dynamic">
                 <mat-label>分</mat-label>
-                <mat-select [(ngModel)]="startMinute" name="bulkStartMinute">
+                <mat-select [(ngModel)]="startMinute" name="bulkStartMinute" (ngModelChange)="onTimeWindowChange()">
                   <mat-option *ngFor="let m of minuteOptions" [value]="m">{{ formatTimePart(m) }}</mat-option>
                 </mat-select>
               </mat-form-field>

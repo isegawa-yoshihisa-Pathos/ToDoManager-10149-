@@ -109,25 +109,7 @@
       </mat-menu>
 
       <div class="tab-nav-below-content">
-        @if (mainTab() === 'private') {
-          <section class="section">
-            <app-task-list [taskScope]="privateTaskScope()"></app-task-list>
-          </section>
-        }
-        @if (mainTab() === 'project') {
-          <section class="section project-section">
-            @if (!activeProject()) {
-              <app-project-hub
-                (projectOpened)="onProjectOpened($event)"
-                (addPrivateList)="onAddPrivateList()"
-              ></app-project-hub>
-            } @else {
-              <div class="project-detail">
-                <app-task-list [taskScope]="projectTaskScope()"></app-task-list>
-              </div>
-            }
-          </section>
-        }
+        <router-outlet />
       </div>
     </mat-tab-nav-panel>
   </div>

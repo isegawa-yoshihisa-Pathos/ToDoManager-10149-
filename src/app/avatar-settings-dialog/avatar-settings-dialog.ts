@@ -1,9 +1,6 @@
 import { Component, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {
-  MatDialogModule,
-  MatDialogRef,
-} from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { Storage, ref, uploadBytes, getDownloadURL } from '@angular/fire/storage';
 import { AuthService } from '../auth.service';

@@ -1,12 +1,4 @@
-import {
-  Component,
-  DestroyRef,
-  ElementRef,
-  inject,
-  OnDestroy,
-  OnInit,
-  ViewChild,
-} from '@angular/core';
+import {Component, DestroyRef, ElementRef, inject, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -488,9 +480,8 @@ export class TaskDetail implements OnInit, OnDestroy {
   formatTimePart(n: number): string {
     return String(n).padStart(2, '0');
   }
-
-  /** 空欄のときだけ現在／1時間後を入れる（タスクフォームと同様） */
-  onScheduleEditModeChange(mode: string): void {
+  
+  onScheduleModeChange(mode: string): void {
     const m = mode as 'none' | 'deadline' | 'window';
     if (m === 'deadline' && !this.deadlineDate) {
       const now = new Date();
@@ -514,6 +505,17 @@ export class TaskDetail implements OnInit, OnDestroy {
         this.endMinute = hm.minute;
       }
     }
+  }
+
+  onTimeWindowChange(): void {
+    const baseTime = new Date(this.startDate!.getTime());
+    baseTime.setHours(this.startHour, this.startMinute, 0, 0);
+
+    const end = new Date(baseTime.getTime() + 3600000);
+    this.endDate = startOfLocalDate(end);
+    const hm = localHourAndMinute(end);
+    this.endHour = hm.hour;
+    this.endMinute = hm.minute;
   }
 
   async save(): Promise<void> {
@@ -733,7 +735,10 @@ export class TaskDetail implements OnInit, OnDestroy {
       [TASK_RETURN_QUERY.taskView]: taskView,
       [TASK_RETURN_QUERY.cal]: calOut,
     };
-    void this.router.navigate(['/user-window'], { queryParams });
+    const listUrl = this.scopeParam === 'private' ? `private/default` :
+                this.scopeParam.startsWith('pl-') ? `private/${this.scopeParam.slice(3)}` :
+                                                    `project/${this.scopeParam}`;
+    void this.router.navigate([`/user-window/${listUrl}`], { queryParams });
   }
 
   back(): void {

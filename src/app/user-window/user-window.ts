@@ -10,19 +10,18 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { TaskList } from '../task-list/task-list';
-import { ProjectHub, ProjectOpenedPayload } from '../project-hub/project-hub';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
-import { NavigationEnd, Router } from '@angular/router';
-import { filter } from 'rxjs/operators';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs/operators';
+import { merge, of } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { ProjectSessionService } from '../project-session.service';
-import { TaskScope } from '../task-scope';
 import {
   Firestore,
   collection,
@@ -32,7 +31,6 @@ import {
   setDoc,
   serverTimestamp,
 } from '@angular/fire/firestore';
-import { map } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { PrivateListService } from '../private-list.service';
 import {
@@ -46,6 +44,34 @@ import { SignOutLifecycleService } from '../sign-out-lifecycle.service';
 import { displayEllipsis, isDisplayTruncated } from '../display-ellipsis';
 import { restoreTaskShellScrollPosition } from '../task-shell-scroll';
 
+type UserWindowParsed =
+  | { kind: 'private'; listId: string }
+  | { kind: 'projectHub' }
+  | { kind: 'project'; projectId: string }
+  | { kind: 'unknown' };
+
+/** `/user-window` 配下の子パスを正規化（子ルートと表示の単一のソースにする） */
+function parseUserWindowPath(url: string): UserWindowParsed {
+  const path = url.split('?')[0];
+  const segments = path.split('/').filter(Boolean);
+  const uwi = segments.indexOf('user-window');
+  if (uwi < 0) {
+    return { kind: 'unknown' };
+  }
+  const a = segments[uwi + 1];
+  const b = segments[uwi + 2];
+  if (a === 'private' && b != null && b !== '') {
+    return { kind: 'private', listId: b };
+  }
+  if (a === 'project' && b === 'hub') {
+    return { kind: 'projectHub' };
+  }
+  if (a === 'project' && b != null && b !== '' && b !== 'hub') {
+    return { kind: 'project', projectId: b };
+  }
+  return { kind: 'unknown' };
+}
+
 export type NavEntry =
   | { key: string; kind: 'privateDefault'; label: string }
   | { key: string; kind: 'privateList'; id: string; title: string }
@@ -56,8 +82,7 @@ export type NavEntry =
   standalone: true,
   imports: [
     CommonModule,
-    TaskList,
-    ProjectHub,
+    RouterOutlet,
     MatButtonModule,
     MatMenuModule,
     MatTabsModule,
@@ -84,9 +109,37 @@ export class UserWindow implements OnInit, OnDestroy {
   private tabOrderSub?: Subscription;
   private tabAppearanceSub?: Subscription;
 
-  mainTab = signal<'private' | 'project'>('private');
-  activeProject = signal<{ id: string; name: string } | null>(null);
+  /** ナビゲーションのたびに更新（子ルートの URL を computed の入力にする） */
+  readonly routerUrl = toSignal(
+    merge(
+      of(this.router.url),
+      this.router.events.pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        map((e) => e.urlAfterRedirects),
+      ),
+    ),
+    { initialValue: this.router.url },
+  );
 
+  readonly parsedUserWindow = computed(() => parseUserWindowPath(this.routerUrl()));
+
+  mainTab = computed(() => {
+    const p = this.parsedUserWindow();
+    if (p.kind === 'private' || p.kind === 'unknown') {
+      return 'private';
+    }
+    return 'project';
+  });
+
+  activeProject = computed(() => {
+    const p = this.parsedUserWindow();
+    if (p.kind !== 'project') {
+      return null;
+    }
+    const projectId = p.projectId;
+    const m = this.memberships().find((m) => m.projectId === projectId);
+    return m ? { id: projectId, name: m?.projectName ?? '' } : null;
+  });
   activePrivateListId = signal<'default' | string>('default');
   defaultPrivateLabel = signal('プライベート');
   privateLists = signal<{ id: string; title: string }[]>([]);
@@ -99,19 +152,6 @@ export class UserWindow implements OnInit, OnDestroy {
   tabColorsRaw = signal<Record<string, string>>({});
 
   readonly tabKeyDefault = TAB_KEY_PRIVATE_DEFAULT;
-
-  privateTaskScope = computed<TaskScope>(() => ({
-    kind: 'private',
-    privateListId: this.activePrivateListId(),
-  }));
-
-  projectTaskScope = computed<TaskScope>(() => {
-    const p = this.activeProject();
-    if (!p) {
-      return { kind: 'private', privateListId: 'default' };
-    }
-    return { kind: 'project', projectId: p.id };
-  });
 
   readonly allTabKeys = computed(() => {
     const s = new Set<string>();
@@ -166,8 +206,8 @@ export class UserWindow implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const s = this.projectSession.load();
-    this.mainTab.set(s.mainTab);
-    this.activeProject.set(s.activeProject);
+    // this.mainTab.set(s.mainTab);
+    // this.activeProject.set(s.activeProject);
     this.memberships.set(s.projectTabsCache);
     this.tabOrderRaw.set(s.tabOrderCache);
     this.tabColorsRaw.set(s.tabColorsCache ?? {});
@@ -204,13 +244,19 @@ export class UserWindow implements OnInit, OnDestroy {
         this.persistSession();
       });
 
+    this.syncActivePrivateFromUrl(this.router.url);
+
     this.router.events
       .pipe(
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-        filter((e) => e.urlAfterRedirects.split('?')[0] === '/user-window'),
+        filter((e) => {
+          const p = e.urlAfterRedirects.split('?')[0];
+          return p === '/user-window' || p.startsWith('/user-window/');
+        }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(() => {
+      .subscribe((e) => {
+        this.syncActivePrivateFromUrl(e.urlAfterRedirects);
         restoreTaskShellScrollPosition();
       });
 
@@ -251,6 +297,10 @@ export class UserWindow implements OnInit, OnDestroy {
         const active = this.activePrivateListId();
         if (active !== 'default' && !rows.some((r) => r.id === active)) {
           this.activePrivateListId.set('default');
+          const cur = parseUserWindowPath(this.router.url);
+          if (cur.kind === 'private' && cur.listId === active) {
+            void this.router.navigate(['/user-window/private/default']);
+          }
         }
         this.persistSession();
       });
@@ -283,6 +333,13 @@ export class UserWindow implements OnInit, OnDestroy {
       this.tabColorsRaw.set(colors);
       this.persistSession();
     });
+  }
+
+  private syncActivePrivateFromUrl(url: string): void {
+    const p = parseUserWindowPath(url);
+    if (p.kind === 'private') {
+      this.activePrivateListId.set(p.listId);
+    }
   }
 
   ngOnDestroy(): void {
@@ -335,35 +392,19 @@ export class UserWindow implements OnInit, OnDestroy {
   }
 
   selectDefaultPrivateTab(): void {
-    this.mainTab.set('private');
-    this.activeProject.set(null);
-    this.activePrivateListId.set('default');
-    this.persistSession();
+    void this.router.navigate(['/user-window/private/default']);
   }
 
   selectPrivateList(listId: string): void {
-    this.mainTab.set('private');
-    this.activeProject.set(null);
-    this.activePrivateListId.set(listId);
-    this.persistSession();
+    void this.router.navigate(['/user-window/private', listId]);
   }
 
   selectProjectHub(): void {
-    this.mainTab.set('project');
-    this.activeProject.set(null);
-    this.persistSession();
-  }
-
-  onProjectOpened(payload: ProjectOpenedPayload): void {
-    this.mainTab.set('project');
-    this.activeProject.set({ id: payload.projectId, name: payload.projectName });
-    this.persistSession();
+    void this.router.navigate(['/user-window/project/hub']);
   }
 
   openProject(entry: NavEntry & { kind: 'project' }): void {
-    this.mainTab.set('project');
-    this.activeProject.set({ id: entry.projectId, name: entry.projectName });
-    this.persistSession();
+    void this.router.navigate(['/user-window/project', entry.projectId]);
   }
 
   openProjectSettings(ev: Event, entry: NavEntry & { kind: 'project' }): void {
@@ -483,9 +524,9 @@ export class UserWindow implements OnInit, OnDestroy {
     this.persistSession();
   }
 
-  isProjectHubActive(): boolean {
-    return this.mainTab() === 'project' && this.activeProject() === null;
-  }
+  isProjectHubActive = computed(
+    () => this.parsedUserWindow().kind === 'projectHub',
+  );
 
   isProjectTabActive(projectId: string): boolean {
     return (
@@ -499,22 +540,6 @@ export class UserWindow implements OnInit, OnDestroy {
 
   isPrivateListTabActive(listId: string): boolean {
     return this.mainTab() === 'private' && this.activePrivateListId() === listId;
-  }
-
-  async onAddPrivateList(): Promise<void> {
-    const userId = this.auth.userId();
-    if (!userId) {
-      return;
-    }
-    try {
-      const id = await this.privateListService.createPrivateList(userId);
-      this.activePrivateListId.set(id);
-      this.mainTab.set('private');
-      this.activeProject.set(null);
-      this.persistSession();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'リストの追加に失敗しました');
-    }
   }
 
   async promptRenameDefaultPrivate(): Promise<void> {
@@ -560,7 +585,10 @@ export class UserWindow implements OnInit, OnDestroy {
     }
     try {
       await this.privateListService.deleteExtraList(userId, pl.id);
-      if (this.activePrivateListId() === pl.id) {
+      const p = parseUserWindowPath(this.router.url);
+      if (p.kind === 'private' && p.listId === pl.id) {
+        void this.router.navigate(['/user-window/private/default']);
+      } else if (this.activePrivateListId() === pl.id) {
         this.activePrivateListId.set('default');
       }
       this.persistSession();

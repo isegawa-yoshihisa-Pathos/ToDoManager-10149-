@@ -33,7 +33,7 @@ export class AppHeader {
   private readonly signOutLifecycle = inject(SignOutLifecycleService);
   readonly auth = inject(AuthService);
 
-  readonly homeLink = computed(() => (this.auth.userId() ? '/user-window' : '/login'));
+  readonly homeLink = computed(() => (this.auth.userId() ? '/user-window/private/default' : '/login'));
 
   /** Firestore ハイドレート前など、表示名がまだ無いときは UID を出さない */
   readonly accountMenuLabel = computed(() => {
@@ -81,19 +81,13 @@ export class AppHeader {
   }
 
   async deleteAccount(): Promise<void> {
-    if (
-      !confirm(
-        'アカウントを削除すると、このアカウントではログインできなくなります。データの復元はできません。本当に削除しますか？',
-      )
-    ) {
+    if (!confirm('アカウントを削除すると、このアカウントではログインできなくなります。データの復元はできません。本当に削除しますか？')) {
       return;
     }
     if (!confirm('削除を確定します。よろしいですか？')) {
       return;
     }
-    const password = window.prompt(
-      'セキュリティのため、現在のログインパスワードを入力してください。',
-    );
+    const password = window.prompt('セキュリティのため、現在のログインパスワードを入力してください。');
     if (password === null) {
       return;
     }

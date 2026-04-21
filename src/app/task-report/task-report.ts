@@ -1,6 +1,6 @@
 import { Component, DestroyRef, inject, OnDestroy, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { CommonModule, Location } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   Firestore,
@@ -42,7 +42,6 @@ import type { TaskActivityAction } from '../task-activity-log.service';
 export class TaskReport implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly location = inject(Location);
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
@@ -247,10 +246,9 @@ export class TaskReport implements OnInit, OnDestroy {
   }
 
   back(): void {
-    if (window.history.length > 1) {
-      this.location.back();
-    } else {
-      void this.router.navigate(['/user-window']);
-    }
+    const listUrl = this.scopeParam === 'private' ? `private/default` :
+                this.scopeParam.startsWith('pl-') ? `private/${this.scopeParam.slice(3)}` :
+                                                    `project/${this.scopeParam}`;
+    void this.router.navigate([`/user-window/${listUrl}`]);
   }
 }

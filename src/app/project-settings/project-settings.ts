@@ -208,7 +208,7 @@ export class ProjectSettings implements OnInit, OnDestroy {
   }
 
   back(): void {
-    void this.router.navigate(['/user-window']);
+    void this.router.navigate([`/user-window/project/${this.projectId}`]);
   }
 
   async saveProjectName(): Promise<void> {
