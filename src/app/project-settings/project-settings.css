@@ -230,3 +230,7 @@
   align-items: center;
   flex-shrink: 0;
 }
+
+.project-delete {
+  background-color: #c62828;
+}

@@ -13,23 +13,22 @@
     <button mat-menu-item type="button" (click)="ctxBulkEditNavigate()">
       {{ ctxBulkIds.length }}件のタスクを編集
     </button>
-    <button mat-menu-item type="button" (click)="ctxBulkDeleteFromMenu()">
+    <button mat-menu-item type="button" (click)="ctxDuplicateTasks()">
+        {{ ctxBulkIds.length }}件のタスクを複製
+    </button>
+    <mat-divider />
+    <button mat-menu-item type="button" class="task-delete" (click)="ctxBulkDeleteFromMenu()">
       {{ ctxBulkIds.length }}件のタスクを削除
     </button>
   }
-  <button mat-menu-item type="button" (click)="ctxDuplicateTasks()">
-    @if (ctxBulkMode && ctxBulkIds.length >= 2) {
-      {{ ctxBulkIds.length }}件のタスクを複製
-    } @else {
-      タスクを複製
-    }
-  </button>
-  @if (!(ctxBulkMode && ctxBulkIds.length >= 2)) {
-    <button mat-menu-item type="button" (click)="ctxNavigateDetail()">詳細</button>
+  @else {
+    <button mat-menu-item type="button" (click)="ctxNavigateDetail()">タスクを編集</button>
+    <button mat-menu-item type="button" (click)="ctxDuplicateTasks()">タスクを複製</button>
     @if (ctxTask && !ctxTask.parentTaskId) {
       <button mat-menu-item type="button" (click)="ctxOpenCreateSubtaskDialog()">子タスクを作成</button>
     }
-    <button mat-menu-item type="button" (click)="ctxDeleteTask()">タスクを削除</button>
+    <mat-divider />
+    <button mat-menu-item type="button" class="task-delete" (click)="ctxDeleteTask()">タスクを削除</button>
   }
 </mat-menu>
 

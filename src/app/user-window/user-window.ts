@@ -17,6 +17,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDividerModule } from '@angular/material/divider';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { AuthService } from '../auth.service';
@@ -63,6 +64,7 @@ export type NavEntry =
     MatIconModule,
     MatDialogModule,
     DragDropModule,
+    MatDividerModule,
   ],
   templateUrl: './user-window.html',
   styleUrl: './user-window.css',

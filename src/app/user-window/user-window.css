@@ -30,6 +30,10 @@ app-task-list {
   width: 100%;
 }
 
+.private-list-delete {
+  color: #c62828;
+}
+
 /** タブ行と「タスクリストを追加」ボタン（＋） */
 .nav-tabs-toolbar {
   display: flex;

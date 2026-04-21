@@ -89,15 +89,14 @@
 
       <mat-menu #defaultPrivateMenu="matMenu">
         <button mat-menu-item type="button" (click)="promptRenameDefaultPrivate()">名称を変更</button>
-        <button mat-menu-item type="button" (click)="changeTabColor(tabKeyDefault)">
-          タブの色を設定…
-        </button>
+        <button mat-menu-item type="button" (click)="changeTabColor(tabKeyDefault)">タブの色を設定…</button>
       </mat-menu>
       <mat-menu #extraPrivateSharedMenu="matMenu">
         <ng-template matMenuContent let-pl="pl" let-tabKey="tabKey">
           <button mat-menu-item type="button" (click)="renameExtraPrivate(pl)">名称を変更</button>
-          <button mat-menu-item type="button" (click)="deleteExtraPrivate(pl)">削除</button>
           <button mat-menu-item type="button" (click)="changeTabColor(tabKey)">タブの色を設定…</button>
+          <mat-divider />
+          <button mat-menu-item type="button" class="private-list-delete" (click)="deleteExtraPrivate(pl)">削除</button>
         </ng-template>
       </mat-menu>
       <mat-menu #projectTabMenu="matMenu">

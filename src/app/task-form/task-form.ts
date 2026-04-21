@@ -151,6 +151,17 @@ export class TaskForm implements OnInit, OnChanges {
     }
   }
 
+  onTimeWindowChange(): void {
+    const baseTime = new Date(this.startDate!.getTime());
+    baseTime.setHours(this.startHour, this.startMinute, 0, 0);
+
+    const end = new Date(baseTime.getTime() + 3600000);
+    this.endDate = startOfLocalDate(end);
+    const hm = localHourAndMinute(end);
+    this.endHour = hm.hour;
+    this.endMinute = hm.minute;
+  }
+
   onTitleKeydownEnter(event: Event): void {
     if (!(event instanceof KeyboardEvent)) {
       return;

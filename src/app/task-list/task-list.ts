@@ -35,6 +35,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSelectModule } from '@angular/material/select';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { TaskFormDialog } from '../task-form-dialog/task-form-dialog';
 import { TaskDuplicateDialog } from '../task-duplicate-dialog/task-duplicate-dialog';
@@ -95,6 +96,7 @@ import { taskStatusTransitionPatch } from '../task-firestore-mutation';
     MatDialogModule,
     MatMenuModule,
     MatCheckboxModule,
+    MatDividerModule,
     UserAvatar,
   ],
   templateUrl: './task-list.html',
@@ -158,7 +160,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   readonly priorityFilterValues = [5, 4, 3, 2, 1] as const;
 
-  /** Firestore と同期するカンバン列（進捗とは独立） */
+  /** Firestore と同期するカンバン列 */
   kanbanColumnList: KanbanColumn[] = [...DEFAULT_KANBAN_COLUMNS];
 
   /** 単一 mat-menu 用（編集ボタンでセット） */
@@ -987,7 +989,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     });
   }
 
-  /** カンバン同一親の子だけをつなぐドロップリスト ID（列リストとは接続しない） */
+  /** カンバン内で同一親の子だけをつなぐドロップリスト ID（列リストとは接続しない） */
   kanbanSubListId(parentId: string): string {
     return `kanban-sub-${parentId}`;
   }
@@ -1000,13 +1002,43 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     return state;
   }
 
+  private orderedSelectedKanbanRoots(state: Record<string, Task[]>): Task[] {
+    const out: Task[] = [];
+    for (const c of this.kanbanColumnList) {
+      for (const t of state[c.id] ?? []) {
+        const id = t.id;
+        if (id && !t.parentTaskId && this.selectedTaskIdSet.has(id)) {
+          out.push(t);
+        }
+      }
+    }
+    return out;
+  }
+
+  private insertIndexInColumnAfterRemovingBlock(
+    origColumn: Task[],
+    cur: number,
+    blockIds: ReadonlySet<string>,
+  ): number {
+    const length = origColumn.length;
+    const end = Math.max(0, Math.min(cur + 1, length));
+    let k = 0;
+    for (let i = 0; i < end; i++) {
+      const id = origColumn[i]?.id;
+      if (id && !blockIds.has(id)) {
+        k++;
+      }
+    }
+    return k;
+  }
+
   /** リスト行（task-list-item）のラベル帯色と同じ */
   kanbanLabelColor(task: Task): string {
     const c = task.label?.trim();
     return c || '#e0e0e0';
   }
 
-  /** ドラッグで列間移動（kanbanColumnId のみ更新）。進捗は変えない */
+  /** カンバン内で同一親の子だけをつなぐドロップリストでドラッグで移動*/
   onKanbanSubtaskDrop(ev: CdkDragDrop<Task>, parentId: string): void {
     const arr = [...this.subtasksForParentKanban(parentId)];
     const prev = ev.previousIndex;
@@ -1049,6 +1081,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     void this.persistKanbanSubtaskOrder(parentId, merged);
   }
 
+  /** ドラッグで列間移動*/
   onKanbanDrop(ev: CdkDragDrop<Task>): void {
     const task = ev.item.data as Task | undefined;
     if (!task?.id || task.parentTaskId) {
@@ -1059,34 +1092,34 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     if (!fromId || !toId || !this.kanbanColumnList.some((c) => c.id === fromId)) {
       return;
     }
+    if (!this.kanbanColumnList.some((c) => c.id === toId)) {
+      return;
+    }
+
     const state = this.buildKanbanColumnState();
     const prev = ev.previousIndex;
     const cur = ev.currentIndex;
 
-    const isSelRoot = (t: Task | undefined): boolean =>
-      !!t?.id && !t.parentTaskId && this.selectedTaskIdSet.has(t.id);
-
-    if (fromId === toId) {
-      const arr = [...(state[fromId] ?? [])];
-      if (arr.length === 0) {
-        return;
+    let block = this.orderedSelectedKanbanRoots(state);
+    if (block.length === 0 || !block.some((t) => t.id === task.id)) {
+      block = [task];
+    }
+    const blockIds = new Set<string>();
+    for (const t of block) {
+      if (t.id) {
+        blockIds.add(t.id);
       }
-      if (prev < 0 || prev >= arr.length || cur < 0 || cur > arr.length) {
-        return;
-      }
+    }
 
-      const selectedIndices = new Set<number>();
-      for (let i = 0; i < arr.length; i++) {
-        if (isSelRoot(arr[i])) {
-          selectedIndices.add(i);
+    if (block.length === 1) {
+      if (fromId === toId) {
+        const arr = [...(state[fromId] ?? [])];
+        if (arr.length === 0) {
+          return;
         }
-      }
-      if (!selectedIndices.has(prev)) {
-        selectedIndices.clear();
-        selectedIndices.add(prev);
-      }
-
-      if (selectedIndices.size === 1) {
+        if (prev < 0 || prev >= arr.length || cur < 0 || cur > arr.length) {
+          return;
+        }
         if (prev === cur) {
           return;
         }
@@ -1097,36 +1130,11 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         return;
       }
 
-      const sortedSel = [...selectedIndices].sort((a, b) => a - b);
-      const block = sortedSel.map((i) => arr[i]);
-      const rest = arr.filter((_, i) => !selectedIndices.has(i));
-      const k = this.insertionIndexInRestForMulti(arr.length, selectedIndices, cur);
-      state[fromId] = [...rest.slice(0, k), ...block, ...rest.slice(k)];
-      void this.persistKanbanBoardOrder(state);
-      return;
-    }
-
-    if (!this.kanbanColumnList.some((c) => c.id === toId)) {
-      return;
-    }
-    const fromArr = [...(state[fromId] ?? [])];
-    const toArr = [...(state[toId] ?? [])];
-    if (prev < 0 || prev >= fromArr.length || cur < 0 || cur > toArr.length) {
-      return;
-    }
-
-    const selectedIndices = new Set<number>();
-    for (let i = 0; i < fromArr.length; i++) {
-      if (isSelRoot(fromArr[i])) {
-        selectedIndices.add(i);
+      const fromArr = [...(state[fromId] ?? [])];
+      const toArr = [...(state[toId] ?? [])];
+      if (prev < 0 || prev >= fromArr.length || cur < 0 || cur > toArr.length) {
+        return;
       }
-    }
-    if (!selectedIndices.has(prev)) {
-      selectedIndices.clear();
-      selectedIndices.add(prev);
-    }
-
-    if (selectedIndices.size === 1) {
       const fa = [...fromArr];
       const ta = [...toArr];
       const [moved] = fa.splice(prev, 1);
@@ -1134,21 +1142,32 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         return;
       }
       const updated: Task = { ...moved, kanbanColumnId: toId };
-      ta.splice(Math.min(cur, ta.length), 0, updated);
+      const insertAt = Math.min(Math.max(0, cur), ta.length);
+      ta.splice(insertAt, 0, updated);
       state[fromId] = fa;
       state[toId] = ta;
       void this.persistKanbanBoardOrder(state);
       return;
     }
 
-    const sortedSel = [...selectedIndices].sort((a, b) => a - b);
-    const block = sortedSel
-      .map((i) => fromArr[i])
-      .map((t) => ({ ...t, kanbanColumnId: toId }));
-    const fromRemainder = fromArr.filter((_, i) => !selectedIndices.has(i));
-    const insertAt = Math.min(Math.max(0, cur), toArr.length);
-    state[fromId] = fromRemainder;
-    state[toId] = [...toArr.slice(0, insertAt), ...block, ...toArr.slice(insertAt)];
+    const origTo = [...(state[toId] ?? [])];
+    if (cur < 0 || cur > origTo.length) {
+      return;
+    }
+
+    for (const c of this.kanbanColumnList) {
+      const cid = c.id;
+      state[cid] = (state[cid] ?? []).filter((t) => !t.id || !blockIds.has(t.id));
+    }
+
+    const toAfter = [...(state[toId] ?? [])];
+    const blockTouchesDest = block.some((t) => t.id && origTo.some((o) => o.id === t.id));
+    const insertAt = blockTouchesDest
+      ? this.insertIndexInColumnAfterRemovingBlock(origTo, cur, blockIds)
+      : Math.min(Math.max(0, cur), toAfter.length);
+
+    const movedBlock = block.map((t) => ({ ...t, kanbanColumnId: toId }));
+    state[toId] = [...toAfter.slice(0, insertAt), ...movedBlock, ...toAfter.slice(insertAt)];
     void this.persistKanbanBoardOrder(state);
   }
 
@@ -1180,6 +1199,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       }
     });
     try {
+      this.clearTaskSelection();
       await batch.commit();
     } catch (e) {
       console.error('persistKanbanBoardOrder failed:', e);
@@ -1637,6 +1657,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       batch.update(r, { listOrderIndex: v });
     });
     try {
+      this.clearTaskSelection();
       await batch.commit();
     } catch (e) {
       console.error('persistTaskOrder failed:', e);
