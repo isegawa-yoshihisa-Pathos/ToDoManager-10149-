@@ -1,32 +1,12 @@
-import {
-  Component,
-  inject,
-  Input,
-  OnChanges,
-  OnDestroy,
-  OnInit,
-  SimpleChanges,
-  ViewChild,
-} from '@angular/core';
+import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { query } from 'firebase/firestore';
 import { TaskListItem } from '../task-list-item/task-list-item';
 import { Task } from '../../models/task';
-import {
-  firestoreStatusFields,
-  nextTaskStatus,
-} from '../../models/task-status';
-import { sortTasks, TaskSortField } from '../task-sort';
-import {
-  colorFilterOptions,
-  defaultTaskFilterState,
-  DueDateFilter,
-  filterTasks,
-  isFilterDefaultForReorder,
-  TaskFilterState,
-} from '../task-filter';
+import { firestoreStatusFields, nextTaskStatus } from '../../models/task-status';
+import { TaskSortField } from '../task-sort';
+import { colorFilterOptions, DueDateFilter, isFilterDefaultForReorder } from '../task-filter';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -37,20 +17,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { TaskFormDialog } from '../task-form-dialog/task-form-dialog';
 import { TaskDuplicateDialog } from '../task-duplicate-dialog/task-duplicate-dialog';
-import {
-  Firestore,
-  collection,
-  addDoc,
-  doc,
-  Timestamp,
-  serverTimestamp,
-  collectionData,
-  writeBatch,
-  updateDoc,
-  getDoc,
-  setDoc,
-  docData,
-} from '@angular/fire/firestore';
+import { Firestore, collection, addDoc, doc, Timestamp, serverTimestamp, collectionData, writeBatch, updateDoc, getDoc, setDoc, docData, increment } from '@angular/fire/firestore';
 import { map } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth.service';
@@ -76,6 +43,7 @@ import { TASK_STATUS_OPTIONS } from '../../models/task-status';
 import { TaskActivityLogService } from '../task-activity-log.service';
 import { taskStatusTransitionPatch, mapFirestoreDocToTask } from '../task-firestore-mutation';
 import { TaskCollectionReferenceService } from '../task-collection-reference.service';
+import { TaskListDataService } from '../task-list-data.service';
 
 @Component({
   selector: 'app-task-list',
@@ -99,6 +67,7 @@ import { TaskCollectionReferenceService } from '../task-collection-reference.ser
   ],
   templateUrl: './task-list.html',
   styleUrl: './task-list.css',
+  providers: [TaskListDataService],
 })
 export class TaskList implements OnInit, OnDestroy, OnChanges {
   private readonly firestore = inject(Firestore);
@@ -109,6 +78,8 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   private readonly projectSession = inject(ProjectSessionService);
   private readonly taskActivityLog = inject(TaskActivityLogService);
   private readonly taskCollectionRef = inject(TaskCollectionReferenceService);
+  /** テンプレートでフィルタ・ソートの signal 更新に使用 */
+  readonly taskListDataService = inject(TaskListDataService);
   private subscriptions = new Subscription();
 
   @Input() taskScope: TaskScope = { kind: 'private', privateListId: 'default' };
@@ -122,18 +93,8 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   /** 月・週表示の週の左端（日曜 / 月曜） */
   calendarWeekdayStart: TaskCalendarWeekdayStart = 'Sunday';
 
-  tasks: Task[] = [];
-
   /** プロジェクトのメンバー（担当者選択・フィルタ用） */
   projectMembers: ProjectMemberRow[] = [];
-
-  /** 未選択は null（ソート条件から除外） */
-  sortKey1: TaskSortField | null = null;
-  sortKey2: TaskSortField | null = null;
-  sortKey3: TaskSortField | null = null;
-  sortAscending = true;
-
-  filterState: TaskFilterState = defaultTaskFilterState();
 
   readonly sortFieldOptions: { value: TaskSortField; label: string }[] = [
     { value: 'color', label: '色' },
@@ -171,6 +132,14 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   ctxDate: Date | null = null;
   ctxBulkMode = false;
   ctxBulkIds: string[] = [];
+
+  get tasks(): Task[] {
+    return this.taskListDataService.tasks();
+  }
+
+  get displayRootTasks(): Task[] {
+    return this.taskListDataService.displayRootTasks();
+  }
   /** リスト複数選択 */
   private selectedTaskIdSet = new Set<string>();
 
@@ -184,7 +153,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   resetFilters(): void {
-    this.filterState = defaultTaskFilterState();
+    this.taskListDataService.resetFilters();
   }
 
   get isProjectScope(): boolean {
@@ -193,7 +162,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   /** 担当者フィルタの選択行（トリガー表示用） */
   filterSelectedMember(): ProjectMemberRow | null {
-    const id = this.filterState.assignee;
+    const id = this.taskListDataService.filterState().assignee;
     if (id === 'all' || id === 'unassigned') {
       return null;
     }
@@ -202,13 +171,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   /** 色フィルタの候補（チャート＋タスクに含まれるその他の色） */
   get colorOptionsForFilter(): string[] {
-    return colorFilterOptions(this.tasks);
-  }
-
-  /** フィルタ適用後のタスク（親子含む） */
-  private filterScopeTasks(): Task[] {
-    const now = new Date();
-    return filterTasks(this.tasks, this.filterState, now, this.isProjectScope);
+    return colorFilterOptions(this.taskListDataService.tasks());
   }
 
   /** リスト用の並びキー */
@@ -223,31 +186,12 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     return typeof v === 'number' && !Number.isNaN(v) ? v : Number.MAX_SAFE_INTEGER;
   }
 
-  /**
-   * リスト・カレンダー用：ルートタスクのみ（子は親の下に別表示／カレンダーでは非表示）
-   */
-  get displayRootTasks(): Task[] {
-    const keys = [this.sortKey1, this.sortKey2, this.sortKey3].filter(
-      (k): k is TaskSortField => k !== null,
-    );
-    const filtered = this.filterScopeTasks().filter((t) => !t.parentTaskId);
-    if (keys.length === 0) {
-      return [...filtered].sort((a, b) => {
-        const oa = this.listOrderNum(a);
-        const ob = this.listOrderNum(b);
-        if (oa !== ob) {
-          return oa - ob;
-        }
-        return (a.title ?? '').localeCompare(b.title ?? '');
-      });
-    }
-    return sortTasks(filtered, keys, this.sortAscending);
-  }
-
   /** リスト展開：同一親の子（リスト順のみ） */
   subtasksForParentList(parentId: string): Task[] {
-    const filtered = this.filterScopeTasks().filter((t) => t.parentTaskId === parentId);
-    return [...filtered].sort((a, b) => {
+    return this.taskListDataService
+      .filteredTasks()
+      .filter((t) => t.parentTaskId === parentId)
+      .sort((a, b) => {
       const c = this.listOrderNum(a) - this.listOrderNum(b);
       if (c !== 0) {
         return c;
@@ -258,7 +202,9 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   /** カンバン展開：同一親の子（カンバン順のみ） */
   subtasksForParentKanban(parentId: string): Task[] {
-    const filtered = this.filterScopeTasks().filter((t) => t.parentTaskId === parentId);
+    const filtered = this.taskListDataService
+      .filteredTasks()
+      .filter((t) => t.parentTaskId === parentId);
     return [...filtered].sort((a, b) => {
       const c = this.kanbanOrderNum(a) - this.kanbanOrderNum(b);
       if (c !== 0) {
@@ -270,27 +216,25 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   /** 親が子を持つ（フィルタ後に1件以上） */
   hasChildTasks(parentId: string | undefined): boolean {
-    if (!parentId) {
-      return false;
-    }
-    return this.filterScopeTasks().some((t) => t.parentTaskId === parentId);
+    if (!parentId) return false;
+
+    const parentTask = this.taskListDataService.tasks().find(t => t.id === parentId);
+    return !!(parentTask && (parentTask.childTaskCount ?? 0) > 0);
   }
 
-  /** リスト／カンバンで子行の展開状態（親タスク ID） */
-  expandedSubtaskParentIds = new Set<string>();
-
   toggleSubtasksExpanded(parentId: string): void {
-    const next = new Set(this.expandedSubtaskParentIds);
+    const current = this.taskListDataService.expandedTaskIds();
+    const next = new Set(current);
     if (next.has(parentId)) {
       next.delete(parentId);
     } else {
       next.add(parentId);
     }
-    this.expandedSubtaskParentIds = next;
+    this.taskListDataService.expandedTaskIds.set(next);
   }
 
   isSubtasksExpanded(parentId: string | undefined): boolean {
-    return !!parentId && this.expandedSubtaskParentIds.has(parentId);
+    return !!parentId && this.taskListDataService.expandedTaskIds().has(parentId);
   }
 
   onSubtasksToggleForListItem(task: Task): void {
@@ -303,6 +247,15 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     } else {
       this.openSubtaskDialog(task);
     }
+  }
+
+  private startSubtaskSubscription(parentId: string): void {
+    const userId = this.auth.userId();
+    if (!userId) return;
+    const baseRef = this.taskCollectionRef.tasksCollectionRef(userId, this.taskScope);
+    if (!baseRef) return;
+
+    this.taskListDataService.subscribeSubtasks(parentId, baseRef);
   }
 
   /** リスト用：ルート行と展開された子行をフラットに（ドラッグ検証用） */
@@ -338,12 +291,16 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   /** フィルタ初期・並び替え条件なしのときだけ手動ドラッグを有効にする */
   get canReorder(): boolean {
+    const sk = this.taskListDataService.sortKeys();
     return (
       this.viewMode === 'list' &&
-      isFilterDefaultForReorder(this.filterState, this.isProjectScope) &&
-      this.sortKey1 === null &&
-      this.sortKey2 === null &&
-      this.sortKey3 === null
+      isFilterDefaultForReorder(
+        this.taskListDataService.filterState(),
+        this.isProjectScope,
+      ) &&
+      sk.f1 === null &&
+      sk.f2 === null &&
+      sk.f3 === null
     );
   }
 
@@ -363,6 +320,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     /** 表示は常にタブ（taskScope）別 localStorage のみ。URL はグローバルなので初期表示に使わない。 */
     this.loadViewPrefsFromStorage();
     this.onTaskListViewUiChange();
+    this.taskListDataService.setProjectScope(this.isProjectScope);
     this.restartSubscriptions();
   }
 
@@ -555,9 +513,10 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         this.onTaskListViewUiChange();
       }
       if (!ch.firstChange) {
+        this.taskListDataService.setProjectScope(this.isProjectScope);
         this.restartSubscriptions();
         if (!this.isProjectScope) {
-          this.filterState = { ...this.filterState, assignee: 'all' };
+          this.taskListDataService.patchFilter({ assignee: 'all' });
         }
       }
     }
@@ -603,33 +562,12 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   private subscribeTasks() {
-    this.subscriptions.unsubscribe();
-    this.subscriptions = new Subscription();
-    this.tasks = [];
-
     const userId = this.auth.userId();
     if (!userId) return;
     const baseRef = this.taskCollectionRef.tasksCollectionRef(userId, this.taskScope);
     if (!baseRef) return;
 
-    const tasksQuery = query(baseRef);
-    
-    const tasksSub = collectionData(tasksQuery, { idField: 'id' })
-      .pipe(
-        map((rows) =>
-          (rows as Record<string, unknown>[]).map((data) => mapFirestoreDocToTask(data))
-        )
-      )
-      .subscribe({
-        next:(tasks) => {
-        this.tasks = tasks;
-        },
-        error:(error) => {
-          console.error('subscribeTasks error:', error);
-        },
-      });
-
-    this.subscriptions.add(tasksSub);
+    this.taskListDataService.initForScope(baseRef);
   }
 
   addTask(task: Task) {
@@ -665,7 +603,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     if (firstCol) {
       payload['kanbanColumnId'] = firstCol;
     }
-    const roots = this.tasks.filter((t) => !t.parentTaskId);
+    const roots = this.taskListDataService.tasks().filter((t) => !t.parentTaskId);
     let maxList = -1;
     let maxKb = -1;
     for (const t of roots) {
@@ -684,6 +622,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     payload['kanbanOrderIndex'] = nextKb;
     payload['createdAt'] = serverTimestamp();
     payload['updatedAt'] = serverTimestamp();
+    payload['parentTaskId'] = null;
     void addDoc(col, payload).then((docRef) =>
       this.taskActivityLog.logCreate(this.taskScope, {
         subjectId: docRef.id,
@@ -698,6 +637,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     if (!userId || !parentId) return;
     const col = this.taskCollectionRef.tasksCollectionRef(userId, this.taskScope);
     if (!col) return;
+    const batch = writeBatch(this.firestore);
     const payload: Record<string, unknown> = {
       title: task.title,
       label: task.label,
@@ -725,7 +665,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     }
     const pCol = this.columnIdForTask(parent);
     payload['kanbanColumnId'] = pCol;
-    const siblings = this.tasks.filter((t) => t.parentTaskId === parentId);
+    const siblings = this.taskListDataService.tasks().filter((t) => t.parentTaskId === parentId);
     let maxList = -1;
     let maxKb = -1;
     for (const t of siblings) {
@@ -744,15 +684,28 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     payload['kanbanOrderIndex'] = nextKb;
     payload['createdAt'] = serverTimestamp();
     payload['updatedAt'] = serverTimestamp();
-    void addDoc(col, payload).then((docRef) =>
+    const subtaskRef = doc(col);
+    batch.set(subtaskRef, payload);
+    const parentRef = doc(col, parentId);
+    batch.update(parentRef, { 
+      childTaskCount: increment(1)
+    });
+    try {
+      void batch.commit();
       this.taskActivityLog.logCreate(this.taskScope, {
-        subjectId: docRef.id,
+        subjectId: subtaskRef.id,
         subjectTitle: task.title,
-      }),
-    );
-    const next = new Set(this.expandedSubtaskParentIds);
+      });
+    } catch (e) {
+      console.error('addSubtask failed:', e);
+    }
+    if (this.taskListDataService.expandedTaskIds().has(parentId)) {
+      return;
+    }
+    const next = new Set(this.taskListDataService.expandedTaskIds());
     next.add(parentId);
-    this.expandedSubtaskParentIds = next;
+    this.taskListDataService.expandedTaskIds.set(next);
+    this.startSubtaskSubscription(parentId);
   }
 
   private insertionIndexInRestForMulti(
@@ -943,7 +896,9 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   tasksForKanbanColumnId(colId: string): Task[] {
-    const filtered = this.filterScopeTasks().filter((t) => !t.parentTaskId);
+    const filtered = this.taskListDataService
+      .filteredTasks()
+      .filter((t) => !t.parentTaskId);
     const inCol = filtered.filter((t) => this.columnIdForTask(t) === colId);
     return [...inCol].sort((a, b) => {
       const c = this.kanbanOrderNum(a) - this.kanbanOrderNum(b);
@@ -1154,7 +1109,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
       }
       const kid = t.kanbanColumnId ?? firstCol;
       batch.update(r, { kanbanOrderIndex: i * 1000, kanbanColumnId: kid });
-      for (const ch of this.tasks) {
+      for (const ch of this.taskListDataService.tasks()) {
         if (ch.parentTaskId === id && ch.id) {
           const r2 = this.taskDocRef(ch.id);
           if (r2) {
@@ -1218,7 +1173,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     const fallbackId =
       idx === 0 ? this.kanbanColumnList[1].id : this.kanbanColumnList[0].id;
     const nextCols = this.kanbanColumnList.filter((c) => c.id !== col.id);
-    const affected = this.tasks.filter((t) => {
+    const affected = this.taskListDataService.tasks().filter((t) => {
       const cid = this.columnIdForTask(t);
       return cid === col.id;
     });
@@ -1439,7 +1394,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   ctxDuplicateTasks(): void {
     const tasks: Task[] = [];
     if (this.ctxBulkMode && this.ctxBulkIds.length >= 2) {
-      const byId = new Map(this.tasks.map((t) => [t.id, t]));
+      const byId = new Map(this.taskListDataService.tasks().map((t) => [t.id, t]));
       for (const id of this.ctxBulkIds) {
         const t = byId.get(id);
         if (t) {
@@ -1470,7 +1425,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
         all.add(x);
       }
     }
-    const byId = new Map(this.tasks.map((t) => [t.id, t]));
+    const byId = new Map(this.taskListDataService.tasks().map((t) => [t.id, t]));
     const batch = writeBatch(this.firestore);
     for (const id of all) {
       const t = byId.get(id);
@@ -1498,7 +1453,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     const out = new Set<string>();
     const walk = (pid: string) => {
       out.add(pid);
-      for (const x of this.tasks) {
+      for (const x of this.taskListDataService.tasks()) {
         if (x.parentTaskId === pid && x.id) {
           walk(x.id);
         }
@@ -1550,7 +1505,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
           subjectId: id,
           subjectTitle: t.title || '（無題）',
         });
-        await this.deleteTaskCascade(t.id);
+        await this.deleteTask(t.id);
       } catch(err) {
         console.error('task delete failed:', err)}
   }
@@ -1568,38 +1523,47 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
           subjectId: id,
           subjectTitle: task.title || '（無題）',
         });
-        await this.deleteTaskCascade(id);
+        await this.deleteTask(id);
     } catch(err) {
       console.error('task delete failed:', err)}
   }
 
-  /**子タスクを再帰的に削除 */
-  private async deleteTaskCascade(rootId: string): Promise<void> {
-    const toDelete = new Set<string>([rootId]);
-    const walk = (pid: string) => {
-      for (const x of this.tasks) {
-        if (x.parentTaskId === pid && x.id) {
-          toDelete.add(x.id);
-          void this.taskActivityLog.logDelete(this.taskScope, {
-            subjectId: x.id,
-            subjectTitle: x.title || '（無題）',
-          }).catch((err) => console.error('task delete failed:', err));
-          walk(x.id);
-        }
+  /**タスクの削除 
+   * 直下の子は Firestore onDelete トリガ（functions）で連鎖削除。
+   * 子タスクを削除する場合は親の childTaskCount を 1 減らす。
+  */
+   private async deleteTask(rootId: string): Promise<void> {
+    const r = this.taskDocRef(rootId);
+    if (!r) {
+      return;
+    }
+    let parentTaskId: string | null = null;
+    try {
+      const snap = await getDoc(r);
+      if (!snap.exists()) {
+        return;
       }
-    };
-    walk(rootId);
+      const p = snap.data()['parentTaskId'];
+      parentTaskId =
+        typeof p === 'string' && p.trim() !== '' ? p.trim() : null;
+    } catch (e) {
+      console.error('deleteTask: read parentTaskId failed:', e);
+      return;
+    }
     const batch = writeBatch(this.firestore);
-    for (const id of toDelete) {
-      const r = this.taskDocRef(id);
-      if (r) {
-        batch.delete(r);
+    batch.delete(r);
+    if (parentTaskId) {
+      const pr = this.taskDocRef(parentTaskId);
+      if (pr) {
+        batch.update(pr, {
+          childTaskCount: increment(-1)
+        });
       }
     }
     try {
       await batch.commit();
     } catch (e) {
-      console.error('deleteTaskCascade failed:', e);
+      console.error('deleteTask failed:', e);
     }
   }
 
@@ -1674,5 +1638,6 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   ngOnDestroy() {
     this.subscriptions.unsubscribe();
+    this.taskListDataService.destroy();
   }
 }

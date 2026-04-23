@@ -26,6 +26,8 @@ export interface Task {
   kanbanColumnId?: string | null;
   /** 親タスク ID（子タスクのときのみ。1階層のみ） */
   parentTaskId?: string | null;
+  /** 子タスクの数 */
+  childTaskCount?: number | null;
   /** Firestore の作成日時（レポート・集計用） */
   createdAt?: Date | null;
   /** Firestore の最終更新日時 */

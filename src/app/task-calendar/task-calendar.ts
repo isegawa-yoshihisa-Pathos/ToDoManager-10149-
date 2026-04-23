@@ -7,7 +7,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatDialog } from '@angular/material/dialog';
 import { Task } from '../../models/task';
 import { TaskScope, taskDetailScopeParam } from '../task-scope';
 import { clampTaskPriority } from '../task-priority';
