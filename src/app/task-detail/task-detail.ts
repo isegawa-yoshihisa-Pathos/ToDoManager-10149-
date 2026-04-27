@@ -38,6 +38,7 @@ import {
 import { TASK_RETURN_QUERY } from '../task-return-query';
 import { ProjectSessionService, type TaskListViewPrefs } from '../project-session.service';
 import {
+  STANDALONE_CALENDAR_PAGE_VIEW_STORAGE_KEY,
   taskListViewStorageKeyFromDetailParam,
   taskScopeFromDetailRouteParam,
 } from '../task-scope';
@@ -117,13 +118,13 @@ export class TaskDetail implements OnInit, OnDestroy {
   /** none | deadline | window — 締切と開始終了は同時に持たない */
   scheduleEditMode: 'none' | 'deadline' | 'window' = 'none';
   deadlineDate: Date | null = null;
-  deadlineHour = 9;
+  deadlineHour = 0;
   deadlineMinute = 0;
   startDate: Date | null = null;
-  startHour = 9;
+  startHour = 0;
   startMinute = 0;
   endDate: Date | null = null;
-  endHour = 9;
+  endHour = 1;
   endMinute = 0;
   readonly hourOptions = TASK_HOUR_OPTIONS;
   readonly minuteOptions = TASK_MINUTE_OPTIONS;
@@ -672,6 +673,29 @@ export class TaskDetail implements OnInit, OnDestroy {
     const q = this.route.snapshot.queryParamMap;
     const from = q.get(TASK_RETURN_QUERY.from);
     const cal = q.get(TASK_RETURN_QUERY.cal);
+
+    if (from === 'integrated-calendar') {
+      const calOut =
+        cal === 'week' ? 'week' : cal === 'day' ? 'day' : 'month';
+      const prefs: TaskListViewPrefs = {
+        viewMode: 'calendar',
+        calendarGranularity:
+          calOut === 'week' || calOut === 'day' ? calOut : 'month',
+        calendarViewDateIso: new Date().toISOString(),
+      };
+      this.projectSession.setTaskListViewPref(
+        STANDALONE_CALENDAR_PAGE_VIEW_STORAGE_KEY,
+        prefs,
+      );
+      void this.router.navigate(['/user-window/calendar'], {
+        queryParams: {
+          [TASK_RETURN_QUERY.taskView]: 'calendar',
+          [TASK_RETURN_QUERY.cal]: calOut,
+        },
+      });
+      return;
+    }
+
     const taskView =
       from === 'calendar' ? 'calendar' : from === 'kanban' ? 'kanban' : 'list';
     const calOut =
@@ -698,9 +722,12 @@ export class TaskDetail implements OnInit, OnDestroy {
       [TASK_RETURN_QUERY.taskView]: taskView,
       [TASK_RETURN_QUERY.cal]: calOut,
     };
-    const listUrl = this.scopeParam === 'private' ? `private/default` :
-                this.scopeParam.startsWith('pl-') ? `private/${this.scopeParam.slice(3)}` :
-                                                    `project/${this.scopeParam}`;
+    const listUrl =
+      this.scopeParam === 'private'
+        ? `private/default`
+        : this.scopeParam.startsWith('pl-')
+          ? `private/${this.scopeParam.slice(3)}`
+          : `project/${this.scopeParam}`;
     void this.router.navigate([`/user-window/${listUrl}`], { queryParams });
   }
 
@@ -710,7 +737,7 @@ export class TaskDetail implements OnInit, OnDestroy {
 
   backButtonLabel(): string {
     const from = this.route.snapshot.queryParamMap.get(TASK_RETURN_QUERY.from);
-    if (from === 'calendar') {
+    if (from === 'calendar' || from === 'integrated-calendar') {
       return '← カレンダーへ戻る';
     }
     if (from === 'kanban') {

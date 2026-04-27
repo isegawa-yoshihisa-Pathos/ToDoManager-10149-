@@ -232,11 +232,14 @@ export class TaskCalendar {
   private readonly router = inject(Router);
   @Input({ required: true }) tasks: Task[] = [];
   @Input({ required: true }) taskScope!: TaskScope;
+  @Input() calendarSourceScope?: TaskScope;
+  /** 詳細 URL の `from`（統合カレンダーから開くときは `integrated-calendar`） */
+  @Input() taskDetailFrom: 'calendar' | 'integrated-calendar' = 'calendar';
+  @Input() showIntegrateButton = false;
   @Input() granularity: TaskCalendarGranularity = 'month';
-
-  /** 週の左端（親の localStorage と同期） */
   @Input() weekdayStart: TaskCalendarWeekdayStart = 'Sunday';
   @Output() weekdayStartChange = new EventEmitter<TaskCalendarWeekdayStart>();
+  @Output() openIntegrateDialog = new EventEmitter<void>();
 
   /** 親（TaskList）と同期するナビ基準日 */
   private _viewDate = new Date();
@@ -312,13 +315,10 @@ export class TaskCalendar {
     return this.taskScope.kind;
   }
 
-  openMultiCalDialog(): void {
-    console.log('openMultiCalDialog');
+  onClickIntegrateButton(): void {
+    this.openIntegrateDialog.emit();
   }
 
-  /**
-   * `weekdayLabels` の列インデックス（0〜6）を返す。`d` の曜日（getDay）と表示列を対応させる。
-   */
   weekdayLabelForDate(d: Date): string {
     const i = this.weekStartsMonday ? (d.getDay() + 6) % 7 : d.getDay();
     return this.weekdayLabels[i];
@@ -329,11 +329,13 @@ export class TaskCalendar {
     if (!id) {
       return;
     }
-    const scope = taskDetailScopeParam(this.taskScope);
+    const scope = taskDetailScopeParam(
+      task.calendarSourceScope ?? this.calendarSourceScope ?? this.taskScope,
+    );
     saveTaskShellScrollPosition();
     void this.router.navigate(['/task', scope, id], {
       queryParams: {
-        from: 'calendar',
+        from: this.taskDetailFrom,
         cal: this.granularity,
       },
     });

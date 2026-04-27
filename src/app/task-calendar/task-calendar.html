@@ -40,8 +40,8 @@
       <button mat-stroked-button type="button" (click)="goNextDay()" matTooltip="次の日" aria-label="次の日">›</button>
       <button mat-stroked-button type="button" class="task-cal-today-button" (click)="goToday()">今日</button>
     }
-    @if (scopeKind === 'private') {
-      <button mat-stroked-button type="button" class="task-cal-multi-cal-button" (click)="openMultiCalDialog()">まとめて表示</button>
+    @if (showIntegrateButton) {
+      <button mat-stroked-button type="button" (click)="onClickIntegrateButton()" matTooltip="まとめて表示" aria-label="まとめて表示">まとめて表示</button>
     }
     @if (granularity === 'month' || granularity === 'week') {
       <mat-button-toggle-group

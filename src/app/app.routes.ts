@@ -4,6 +4,7 @@ import { UserWindow } from './user-window/user-window';
 import { SignUp } from './signup/signup';
 import { UserWindowTaskList } from './user-window/user-window-task-list';
 import { UserWindowProjectHub } from './user-window/user-window-project-hub';
+import { IntegrateTaskCalendar } from './integrate-task-calendar/integrate-task-calendar';
 import { TaskDetail } from './task-detail/task-detail';
 import { TaskBulkEdit } from './task-bulk-edit/task-bulk-edit';
 import { TaskReport } from './task-report/task-report';
@@ -14,6 +15,7 @@ export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: 'login', component: Login },
   { path: 'user-window', component: UserWindow, canActivate: [authGuard], children:[
+    { path: 'calendar', component: IntegrateTaskCalendar },
     { path: 'private/:listId', component: UserWindowTaskList },
     { path: 'project/hub', component: UserWindowProjectHub },
     { path: 'project/:projectId', component: UserWindowTaskList },

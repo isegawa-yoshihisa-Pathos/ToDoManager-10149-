@@ -55,14 +55,19 @@ export class TaskListContextActionsService {
     });
   }
 
-  navigateToDetail(task: Task, taskscope: TaskScope, from: 'list' | 'calendar' | 'kanban'): void {
+  navigateToDetail(
+    task: Task,
+    taskscope: TaskScope,
+    from: 'list' | 'calendar' | 'kanban' | 'integrated-calendar',
+  ): void {
     saveTaskShellScrollPosition();
+    const withCal = from === 'calendar' || from === 'integrated-calendar';
     void this.router.navigate(['/task', taskDetailScopeParam(taskscope), task.id], {
-        queryParams: {
-          from,
-          ...(from === 'calendar' ? { cal: this.calendarGranularity } : {}),
-        },
-      });
+      queryParams: {
+        from,
+        ...(withCal ? { cal: this.calendarGranularity } : {}),
+      },
+    });
   }
 
   openDuplicateDialog(ctxBulkMode: boolean, ctxBulkIds: string[], ctxTask: Task | null, taskScope: TaskScope): void {

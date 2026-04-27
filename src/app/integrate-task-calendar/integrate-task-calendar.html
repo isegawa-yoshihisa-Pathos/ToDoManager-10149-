@@ -1,0 +1,59 @@
+<app-task-list-task-ctx-menu
+  #taskCtxMenuCmp
+  (navigateDetail)="ctxNavigateDetail()"
+  (duplicate)="ctxDuplicateTasks()"
+  (bulkEdit)="ctxBulkEditNavigate()"
+  (bulkDuplicate)="ctxDuplicateTasks()"
+  (bulkDelete)="ctxBulkDeleteFromMenu()"
+  (createSubtask)="ctxOpenCreateSubtaskDialog()"
+  (delete)="ctxDeleteTask()"
+/>
+
+<button
+  type="button"
+  #dayCtxMenuTrigger="matMenuTrigger"
+  [matMenuTriggerFor]="dayCtxMenu"
+  [style.left.px]="contextMenuX"
+  [style.top.px]="contextMenuY"
+  class="day-ctx-menu-anchor"
+  tabindex="-1"
+  aria-hidden="true"
+></button>
+<mat-menu #dayCtxMenu="matMenu">
+  <button mat-menu-item type="button" (click)="openPickScopeThenAddTask()">
+    タスクを作成
+  </button>
+</mat-menu>
+
+<div class="integrated-calendar-toolbar">
+  <mat-button-toggle-group
+    class="calendar-gran-toggle"
+    [(ngModel)]="calendarGranularity"
+    name="calendarGranularity"
+    aria-label="カレンダーの粒度"
+    (change)="onCalendarViewUiChange()"
+  >
+    <mat-button-toggle value="month">月</mat-button-toggle>
+    <mat-button-toggle value="week">週</mat-button-toggle>
+    <mat-button-toggle value="day">日</mat-button-toggle>
+  </mat-button-toggle-group>
+</div>
+
+<div class="task-calendar-shell mat-elevation-z1">
+  <app-task-calendar
+    [tasks]="displayRootTasks"
+    [taskScope]="fallbackTaskScope"
+    [calendarSourceScope]="calendarSourceScopeForCalendar"
+    [taskDetailFrom]="'integrated-calendar'"
+    [granularity]="calendarGranularity"
+    [viewDate]="calendarViewDate"
+    [weekdayStart]="calendarWeekdayStart"
+    [showIntegrateButton]="true"
+    (openIntegrateDialog)="openCalendarIntegrateDialog()"
+    (viewDateChange)="onCalendarViewDateChange($event)"
+    (weekdayStartChange)="onCalendarWeekdayStartChange($event)"
+    (pickCalendarDay)="onPickCalendarDayFromMonth($event)"
+    (taskContextMenu)="onCalendarTaskContextMenu($event)"
+    (dayContextMenu)="openDayContextMenuAt($event.clientX, $event.clientY, $event.date)"
+  ></app-task-calendar>
+</div>

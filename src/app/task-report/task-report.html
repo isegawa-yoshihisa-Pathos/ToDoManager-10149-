@@ -1,7 +1,7 @@
 <div class="task-report-page">
   <header class="task-report-header">
     <button mat-stroked-button type="button" (click)="back()">← 戻る</button>
-    <h1 class="task-report-title">レポート</h1>
+    <h1 class="task-report-title">{{ listTitle }}のレポート</h1>
   </header>
 
   @if (loading) {
@@ -16,11 +16,11 @@
           role="img"
           [attr.aria-label]="
             '未着手 ' +
-            breakdown.todo +
+            breakdown['todo'] +
             '、処理中 ' +
-            breakdown.in_progress +
+            breakdown['in_progress'] +
             '、完了 ' +
-            breakdown.done
+            breakdown['done']
           "
         ></div>
         <ul class="task-report-legend">
@@ -35,6 +35,15 @@
       </div>
     </section>
 
+    <p class="task-report-rollup-note">
+      指標は毎朝 7:00（日本時間）に自動更新されます。
+      @if (rollupGeneratedAt) {
+        <span class="task-report-rollup-time">最終更新: {{ rollupGeneratedAt | date:'yyyy/MM/dd HH:mm' }}</span>
+      }
+    </p>
+    <button mat-stroked-button type="button" (click)="forceRefreshRollup()" [disabled]="rollupRefreshing">
+      {{ rollupRefreshing ? '更新中…' : '更新' }}
+    </button>
     <section class="task-report-section" aria-labelledby="report-metrics-heading">
       <h2 id="report-metrics-heading" class="task-report-h2">直近7日・今後7日</h2>
       <div class="task-report-metrics">

@@ -19,6 +19,8 @@ import {
   filterTasks,
 } from '../task-filter';
 import { TaskSortField, sortTasks } from '../task-sort';
+import type { TaskScope } from '../task-scope';
+import { taskListViewStorageKey } from '../task-scope';
 
 export type TaskListSortKeys = {
   f1: TaskSortField | null;
@@ -45,6 +47,8 @@ export class TaskListDataService {
   selectedTaskIdSet = signal<Set<string>>(new Set());
 
   private rootSubscription?: Subscription;
+  /** 複数 TaskScope のルート購読をまとめた購読（{@link initForMergedScopes}） */
+  private mergedSubscription?: Subscription;
   private subTaskUnsubscribers = new Map<string, Unsubscribe>();
   private currentCollectionRef: any;
 
@@ -309,6 +313,87 @@ export class TaskListDataService {
   /**
    * スコープ（プロジェクトやマイリスト）が切り替わった際の初期化
    */
+  /**
+   * 複数スコープのルートタスクをマージして表示（カレンダー「まとめて表示」用）。
+   * 各タスクに `calendarSourceScope` を付与する。子タスク購読は行わない。
+   */
+  initForMergedScopes(
+    scopes: TaskScope[],
+    getCollectionRef: (scope: TaskScope) => unknown | null,
+  ): Subscription {
+    this.destroy();
+
+    const seen = new Set<string>();
+    const uniqueScopes = scopes.filter((s) => {
+      const k = taskListViewStorageKey(s);
+      if (seen.has(k)) {
+        return false;
+      }
+      seen.add(k);
+      return true;
+    });
+
+    const anyProject = uniqueScopes.some((s) => s.kind === 'project');
+    this.setProjectScope(anyProject);
+
+    const rootsByKey = new Map<string, Task[]>();
+    const outer = new Subscription();
+
+    const mergeAndSetTasks = (): void => {
+      const merged: Task[] = [];
+      for (const scope of uniqueScopes) {
+        const key = taskListViewStorageKey(scope);
+        const roots = rootsByKey.get(key) ?? [];
+        for (const t of roots) {
+          merged.push({
+            ...t,
+            calendarSourceScope: scope,
+          });
+        }
+      }
+      this._tasks.set(merged);
+    };
+
+    for (const scope of uniqueScopes) {
+      const collectionRef = getCollectionRef(scope);
+      if (!collectionRef) {
+        continue;
+      }
+      const key = taskListViewStorageKey(scope);
+      const q = query(
+        collectionRef as never,
+        where('parentTaskId', '==', null),
+        orderBy('listOrderIndex', 'asc'),
+      );
+
+      const sub = collectionData<DocumentData, 'id'>(
+        q as Query<DocumentData>,
+        { idField: 'id' },
+      )
+        .pipe(
+          map((rows) =>
+            rows.map((row) =>
+              mapFirestoreDocToTask(row as Record<string, unknown>),
+            ),
+          ),
+        )
+        .subscribe({
+          next: (tasks) => {
+            rootsByKey.set(key, tasks);
+            mergeAndSetTasks();
+          },
+          error: (error) => {
+            console.error('initForMergedScopes subscription error:', error);
+          },
+        });
+
+      outer.add(sub);
+    }
+
+    this.mergedSubscription = outer;
+    return outer;
+  }
+
   initForScope(collectionRef: any) {
     this.destroy();
     this.currentCollectionRef = collectionRef;
@@ -407,6 +492,10 @@ export class TaskListDataService {
   }
 
   destroy() {
+    if (this.mergedSubscription) {
+      this.mergedSubscription.unsubscribe();
+      this.mergedSubscription = undefined;
+    }
     if (this.rootSubscription) {
       this.rootSubscription.unsubscribe();
       this.rootSubscription = undefined;

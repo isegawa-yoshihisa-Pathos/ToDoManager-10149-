@@ -13,12 +13,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSelectModule } from '@angular/material/select';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatDialogModule } from '@angular/material/dialog';
-import { Firestore, collection, addDoc, doc, Timestamp, serverTimestamp, collectionData, writeBatch, updateDoc, getDoc, setDoc, docData, increment } from '@angular/fire/firestore';
+import { Firestore, collection, addDoc, doc, Timestamp, serverTimestamp, collectionData, writeBatch, getDoc, setDoc, docData, increment } from '@angular/fire/firestore';
 import { map } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth.service';
-import { TaskScope, taskDetailScopeParam, taskListViewStorageKey } from '../task-scope';
+import {
+  TaskScope,
+  taskDetailScopeParam,
+  taskListViewStorageKey,
+} from '../task-scope';
 import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 import type { ProjectMemberRow } from '../../models/project-member';
 import {
@@ -61,7 +64,6 @@ import { TaskListListView } from './task-list-list-view';
     MatFormFieldModule,
     MatSelectModule,
     MatRadioModule,
-    MatDialogModule,
     MatMenuModule,
     MatCheckboxModule,
     MatDividerModule,
@@ -218,13 +220,19 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   private restartSubscriptions(): void {
     this.subscriptions.unsubscribe();
     this.subscriptions = new Subscription();
+
+    const uid = this.auth.userId();
+    if (!uid) {
+      return;
+    }
+
     this.subscribeTasks();
+
     this.subscribeProjectMembers();
     void this.subscribeKanbanBoard();
   }
 
   ngOnInit() {
-    /** 表示は常にタブ（taskScope）別 localStorage のみ。URL はグローバルなので初期表示に使わない。 */
     this.loadViewPrefsFromStorage();
     this.onTaskListViewUiChange();
     this.DataService.setProjectScope(this.isProjectScope);
@@ -233,6 +241,10 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
 
   private scopeStorageKey(scope: TaskScope): string {
     return taskListViewStorageKey(scope);
+  }
+
+  private taskListViewPrefsStorageKey(): string {
+    return this.scopeStorageKey(this.taskScope);
   }
 
   /** タブ切り替え直前に、離れるタブの表示を保存 */
@@ -246,7 +258,9 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   private loadViewPrefsFromStorage(): void {
-    const pref = this.projectSession.getTaskListViewPref(this.scopeStorageKey(this.taskScope));
+    const pref = this.projectSession.getTaskListViewPref(
+      this.taskListViewPrefsStorageKey(),
+    );
     if (!pref) {
       this.viewMode = 'list';
       this.calendarGranularity = 'month';
@@ -263,13 +277,14 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   private persistCurrentViewPrefsToStorage(): void {
-    this.projectSession.setTaskListViewPref(this.scopeStorageKey(this.taskScope), {
+    this.projectSession.setTaskListViewPref(this.taskListViewPrefsStorageKey(), {
       viewMode: this.viewMode,
       calendarGranularity: this.calendarGranularity,
       calendarViewDateIso: this.calendarViewDate.toISOString(),
       calendarWeekdayStart: this.calendarWeekdayStart,
     });
   }
+
 
   onCalendarViewDateChange(d: Date): void {
     this.calendarViewDate = d;
@@ -648,7 +663,6 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     this.ContextActions.openAddSubtask(this.taskScope, this.projectMembers, parent, date, (task: Task) => this.addSubtask(parent, task));
   }
 
-  /** コンテキストメニュー用の親側状態（子はアンカー位置のみ保持。ハンドラはここを参照する） */
   private syncCtxMenuStateForTask(task: Task): void {
     const tid = task.id;
     if (
@@ -867,6 +881,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnDestroy() {
+    this.persistCurrentViewPrefsToStorage();
     this.subscriptions.unsubscribe();
     this.DataService.destroy();
   }

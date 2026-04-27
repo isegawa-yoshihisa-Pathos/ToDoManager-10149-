@@ -1,0 +1,80 @@
+<h2 mat-dialog-title>{{ dialogTitle }}</h2>
+
+@if (selectionMode === 'single') {
+  <mat-dialog-content class="calendar-scope-dialog-body">
+    <mat-radio-group
+      class="calendar-scope-radio-group"
+      [(ngModel)]="singleSelectedKey"
+      name="singleScopePick"
+    >
+      <section class="calendar-scope-section">
+        <h3 class="calendar-scope-heading">プライベート</h3>
+        <ul class="calendar-scope-list">
+          @for (opt of privateOptions; track opt.label + (opt.scope.kind === 'private' ? opt.scope.privateListId : opt.scope.projectId)) {
+            <li>
+              <mat-radio-button [value]="keyForScope(opt.scope)">{{ opt.label }}</mat-radio-button>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="calendar-scope-section">
+        <h3 class="calendar-scope-heading">プロジェクト</h3>
+        <ul class="calendar-scope-list">
+          @for (opt of projectOptions; track opt.label + (opt.scope.kind === 'project' ? opt.scope.projectId : opt.scope.privateListId)) {
+            <li>
+              <mat-radio-button [value]="keyForScope(opt.scope)">{{ opt.label }}</mat-radio-button>
+            </li>
+          }
+        </ul>
+      </section>
+    </mat-radio-group>
+  </mat-dialog-content>
+} @else {
+  <mat-dialog-content class="calendar-scope-dialog-body">
+    <section class="calendar-scope-section">
+      <h3 class="calendar-scope-heading">プライベート</h3>
+      <ul class="calendar-scope-list">
+        @for (opt of privateOptions; track opt.label + (opt.scope.kind === 'private' ? opt.scope.privateListId : opt.scope.projectId)) {
+          <li>
+            <mat-checkbox
+              [checked]="isSelected(opt.scope)"
+              (change)="toggle(opt.scope, $event.checked)"
+            >
+              {{ opt.label }}
+            </mat-checkbox>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="calendar-scope-section">
+      <h3 class="calendar-scope-heading">プロジェクト</h3>
+      <ul class="calendar-scope-list">
+        @for (opt of projectOptions; track opt.label + (opt.scope.kind === 'project' ? opt.scope.projectId : opt.scope.privateListId)) {
+          <li>
+            <mat-checkbox
+              [checked]="isSelected(opt.scope)"
+              (change)="toggle(opt.scope, $event.checked)"
+            >
+              {{ opt.label }}
+            </mat-checkbox>
+          </li>
+        }
+      </ul>
+    </section>
+
+    @if (selectedScopes.length === 0) {
+      <p class="calendar-scope-hint">
+        すべて解除すると、カレンダーにタスクは表示されません。
+      </p>
+    }
+  </mat-dialog-content>
+}
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="onCancel()">キャンセル</button>
+  <button mat-flat-button color="primary" type="button" (click)="onConfirm()">
+    OK
+  </button>
+</mat-dialog-actions>

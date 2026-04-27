@@ -1,0 +1,25 @@
+.day-ctx-menu-anchor {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.integrated-calendar-toolbar {
+  margin-bottom: 8px;
+}
+
+.calendar-gran-toggle .mat-button-toggle {
+  font-size: 13px;
+}
+
+.task-calendar-shell {
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+  padding: 12px;
+}

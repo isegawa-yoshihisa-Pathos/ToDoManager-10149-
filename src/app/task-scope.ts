@@ -22,6 +22,12 @@ export function taskListViewStorageKey(scope: TaskScope): string {
 }
 
 /**
+ * 専用カレンダーページ（`/user-window/calendar`）の表示設定キー。
+ * タブのタスクリスト（`pv:…` / `p:…`）とは別物。
+ */
+export const STANDALONE_CALENDAR_PAGE_VIEW_STORAGE_KEY = 'calendar-page';
+
+/**
  * タスク詳細ルートの `:scope` パラメータ → {@link taskListViewStorageKey} と同じキー空間
  */
 export function taskListViewStorageKeyFromDetailParam(scopeParam: string): string {

@@ -5,8 +5,8 @@
         <button
           type="button"
           class="multi-cal-btn"
-          [class.active]="isProjectHubActive()"
-          (click)="selectProjectHub()"
+          [class.active]="isCalendarRouteActive()"
+          (click)="navigateToStandaloneCalendar()"
           aria-label="カレンダーを表示"
           matTooltip="カレンダーを表示"
         >

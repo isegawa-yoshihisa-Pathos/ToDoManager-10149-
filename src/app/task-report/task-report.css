@@ -82,6 +82,23 @@
   background: #d1d1d1;
 }
 
+.task-report-metrics-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.task-report-rollup-note {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+}
+.task-report-rollup-time {
+  margin-left: 0.5em;
+}
+
 .task-report-legend-count {
   margin-left: auto;
   font-weight: 600;

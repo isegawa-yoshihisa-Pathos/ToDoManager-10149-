@@ -47,6 +47,7 @@ import { restoreTaskShellScrollPosition } from '../task-shell-scroll';
 
 type UserWindowParsed =
   | { kind: 'private'; listId: string }
+  | { kind: 'calendar' }
   | { kind: 'projectHub' }
   | { kind: 'project'; projectId: string }
   | { kind: 'unknown' };
@@ -61,6 +62,9 @@ function parseUserWindowPath(url: string): UserWindowParsed {
   }
   const a = segments[uwi + 1];
   const b = segments[uwi + 2];
+  if (a === 'calendar') {
+    return { kind: 'calendar' };
+  }
   if (a === 'private' && b != null && b !== '') {
     return { kind: 'private', listId: b };
   }
@@ -127,6 +131,9 @@ export class UserWindow implements OnInit, OnDestroy {
 
   mainTab = computed(() => {
     const p = this.parsedUserWindow();
+    if (p.kind === 'calendar') {
+      return 'private';
+    }
     if (p.kind === 'private' || p.kind === 'unknown') {
       return 'private';
     }
@@ -393,6 +400,12 @@ export class UserWindow implements OnInit, OnDestroy {
     this.persistSession();
   }
 
+  /** タブバー左のアイコン：専用カレンダーページ `/user-window/calendar` */
+  navigateToStandaloneCalendar(): void {
+    void this.router.navigate(['/user-window/calendar']);
+  }
+
+  /** 「プライベート」既定タブなどから既定プライベートリストへ */
   selectDefaultPrivateTab(): void {
     void this.router.navigate(['/user-window/private/default']);
   }
@@ -505,6 +518,11 @@ export class UserWindow implements OnInit, OnDestroy {
       return;
     }
     const next = { ...this.tabColorsRaw(), [tabKey]: t };
+    for (const key of Object.keys(next)) {
+      if (!this.allTabKeys().has(key)) {
+        delete next[key];
+      }
+    }
     this.tabColorsRaw.set(next);
     await this.persistTabColorsDoc(next);
   }
@@ -536,12 +554,18 @@ export class UserWindow implements OnInit, OnDestroy {
     );
   }
 
+  readonly isCalendarRouteActive = computed(
+    () => this.parsedUserWindow().kind === 'calendar',
+  );
+
   isDefaultPrivateTabActive(): boolean {
-    return this.mainTab() === 'private' && this.activePrivateListId() === 'default';
+    const p = this.parsedUserWindow();
+    return p.kind === 'private' && p.listId === 'default';
   }
 
   isPrivateListTabActive(listId: string): boolean {
-    return this.mainTab() === 'private' && this.activePrivateListId() === listId;
+    const p = this.parsedUserWindow();
+    return p.kind === 'private' && p.listId === listId;
   }
 
   async promptRenameDefaultPrivate(): Promise<void> {

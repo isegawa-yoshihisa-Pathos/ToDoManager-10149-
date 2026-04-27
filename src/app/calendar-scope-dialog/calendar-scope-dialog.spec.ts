@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { MultiCalendar } from './multi-calendar';
+import { CalendarScopeDialog } from './calendar-scope-dialog';
 
-describe('MultiCalendar', () => {
-  let component: MultiCalendar;
-  let fixture: ComponentFixture<MultiCalendar>;
+describe('CalendarScopeDialog', () => {
+  let component: CalendarScopeDialog;
+  let fixture: ComponentFixture<CalendarScopeDialog>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [MultiCalendar]
+      imports: [CalendarScopeDialog]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(MultiCalendar);
+    fixture = TestBed.createComponent(CalendarScopeDialog);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

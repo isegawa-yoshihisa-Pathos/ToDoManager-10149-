@@ -53,6 +53,8 @@ export class PrivateListService {
       'tasks',
     );
     const listRef = doc(this.firestore, 'accounts', username, 'privateTaskLists', listId);
+    const kanbanRef = doc(this.firestore, 'accounts', username, 'config', `kanban_pl_${listId}`);
+    const appearanceRef = doc(this.firestore, 'accounts', username, 'config', 'TabAppearance', 'colors');
     let snap = await getDocs(tasksCol);
     while (!snap.empty) {
       const batch = writeBatch(this.firestore);
@@ -61,5 +63,6 @@ export class PrivateListService {
       snap = await getDocs(tasksCol);
     }
     await deleteDoc(listRef);
+    await deleteDoc(kanbanRef);
   }
 }

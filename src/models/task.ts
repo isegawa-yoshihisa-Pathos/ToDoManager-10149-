@@ -1,4 +1,5 @@
 import type { TaskStatus } from './task-status';
+import type { TaskScope } from '../app/task-scope';
 
 export interface Task {
   id?: string;
@@ -34,4 +35,6 @@ export interface Task {
   updatedAt?: Date | null;
   /** 完了にした日時（未完了時は null） */
   completedAt?: Date | null;
+  /** カレンダー表示の元となるタスクスコープ（firestore の scope とは独立） */
+  calendarSourceScope?: TaskScope;
 }

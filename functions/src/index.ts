@@ -1,6 +1,9 @@
 import * as functions from 'firebase-functions/v1';
 import type { EventContext } from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import { computeAndWriteRollup, refreshAllRollupsForUser, taskScopeFromDetailRouteParam } from './report-rollup.js';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 admin.initializeApp();
 
@@ -75,3 +78,51 @@ export const onTaskDeletedAccountPrivateList = onTaskDeletedForPath(
   'accounts/{userId}/privateTaskLists/{listId}/tasks/{taskId}',
 );
 export const onTaskDeletedProject = onTaskDeletedForPath('projects/{projectId}/tasks/{taskId}');
+
+
+// レポート関連
+
+export const refreshTaskReportRollup = onCall({ region: REGION }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'ログインが必要です');
+  }
+  const scopeParam = request.data?.scopeParam;
+  if (typeof scopeParam !== 'string') {
+    throw new HttpsError('invalid-argument', 'scopeParam が必要です');
+  }
+  const uid = request.auth.uid;
+  const scope = taskScopeFromDetailRouteParam(scopeParam);
+  await computeAndWriteRollup(db, uid, scope);
+  return { ok: true };
+});
+
+export const scheduledTaskReportRollupDaily = onSchedule(
+  {
+    schedule: '0 7 * * *',
+    timeZone: 'Asia/Tokyo',
+    region: REGION,
+    timeoutSeconds: 540,
+    memory: '512MiB',
+  },
+  async () => {
+    let last: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    const accountsRef = db.collection('accounts');
+    for (;;) {
+      let q = accountsRef.orderBy(admin.firestore.FieldPath.documentId()).limit(100);
+      if (last) {
+        q = q.startAfter(last);
+      }
+      const snap = await q.get();
+      if (snap.empty) break;
+      for (const userDoc of snap.docs) {
+        try {
+          await refreshAllRollupsForUser(db, userDoc.id);
+        } catch (e) {
+          console.error('scheduledTaskReportRollupDaily user failed', userDoc.id, e);
+        }
+      }
+      last = snap.docs[snap.docs.length - 1];
+      if (snap.size < 100) break;
+    }
+  },
+);
