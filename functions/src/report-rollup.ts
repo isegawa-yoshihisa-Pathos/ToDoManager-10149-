@@ -188,10 +188,21 @@ function countDueInNextDays(tasks: TaskLite[], now: Date, days: number): number 
     return n;
 }
 
-  /**
- * タスク一覧を読み、`accounts/{uid}/reportRollups/{scopeKey}` に集計結果を書く。
- * Angular の task-report-stats と同じ算定ロジック。
- */
+
+function rollupDocRef(
+    db: admin.firestore.Firestore,
+    uid: string,
+    scope: TaskScope
+): admin.firestore.DocumentReference {
+    if (scope.kind === 'project') {
+        return db.collection('projects').doc(scope.projectId).collection('reportRollups').doc('latest');
+    }
+    else if (scope.privateListId === 'default') {
+        return db.collection('accounts').doc(uid).collection('reportRollups').doc('latest');
+    }
+    return db.collection('accounts').doc(uid).collection('privateTaskLists').doc(scope.privateListId).collection('reportRollups').doc('latest');
+} 
+
 export async function computeAndWriteRollup(
     db: admin.firestore.Firestore,
     uid: string,
@@ -204,7 +215,7 @@ export async function computeAndWriteRollup(
     const days = 7;
     const breakdown = countStatusBreakdown(tasks);
     const sk = scopeStorageKey(scope);
-    const docRef = db.collection('accounts').doc(uid).collection('reportRollups').doc(sk);
+    const docRef = rollupDocRef(db, uid, scope);
     await docRef.set(
     {
         scopeKey: sk,
@@ -219,9 +230,7 @@ export async function computeAndWriteRollup(
     { merge: true },
     );
 }
-  /**
-   * 既定プライベート・追加プライベート・参加プロジェクトをまとめて更新（日次スケジュール用）。
-   */
+
 export async function refreshAllRollupsForUser(db: admin.firestore.Firestore, uid: string): Promise<void> {
     await computeAndWriteRollup(db, uid, { kind: 'private', privateListId: 'default' });
     const plSnap = await db.collection('accounts').doc(uid).collection('privateTaskLists').get();

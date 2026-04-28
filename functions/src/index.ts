@@ -4,17 +4,16 @@ import * as admin from 'firebase-admin';
 import { computeAndWriteRollup, refreshAllRollupsForUser, taskScopeFromDetailRouteParam } from './report-rollup.js';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { CloudTasksClient } from '@google-cloud/tasks';
 
 admin.initializeApp();
 
 const db = admin.firestore();
 const REGION = 'asia-northeast1' as const;
-
+const tasksClient = new CloudTasksClient();
 const BATCH_SIZE = 500;
 
-/**
- * トリガに対応した `tasks` コレクション参照（Angular の taskDocRef / TaskCollectionReference と同じ階層）
- */
+//　子タスクを削除
 function tasksCollectionForEvent(context: EventContext): admin.firestore.CollectionReference {
   const p = context.params;
   if (p.projectId) {
@@ -34,10 +33,6 @@ function tasksCollectionForEvent(context: EventContext): admin.firestore.Collect
   throw new Error('onTaskDeleted: 未対応のドキュメントパス');
 }
 
-/**
- * 同じ collection 内で parentTaskId == 削除された taskId の子を全削除（500件超は複数 batch）。
- * 子が削除されると再び onDelete が走り、孫以降が連鎖的に消える。
- */
 async function handleTaskDocumentDeleted(
   _snapshot: admin.firestore.DocumentSnapshot,
   context: EventContext,
@@ -65,23 +60,17 @@ async function handleTaskDocumentDeleted(
   }
 }
 
-/**
- * Firestore トリガは「1 本の .document(パス) につき 1 パターン」しか置けないため、
- * アプリの各 tasks 階層ごとに export を分け、処理は上の 1 関数に集約する。
- */
+
 function onTaskDeletedForPath(documentPath: string) {
   return functions.region(REGION).firestore.document(documentPath).onDelete(handleTaskDocumentDeleted);
 }
 
 export const onTaskDeletedAccountDefault = onTaskDeletedForPath('accounts/{userId}/tasks/{taskId}');
-export const onTaskDeletedAccountPrivateList = onTaskDeletedForPath(
-  'accounts/{userId}/privateTaskLists/{listId}/tasks/{taskId}',
-);
+export const onTaskDeletedAccountPrivateList = onTaskDeletedForPath('accounts/{userId}/privateTaskLists/{listId}/tasks/{taskId}');
 export const onTaskDeletedProject = onTaskDeletedForPath('projects/{projectId}/tasks/{taskId}');
 
 
 // レポート関連
-
 export const refreshTaskReportRollup = onCall({ region: REGION }, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'ログインが必要です');
@@ -101,12 +90,20 @@ export const scheduledTaskReportRollupDaily = onSchedule(
     schedule: '0 7 * * *',
     timeZone: 'Asia/Tokyo',
     region: REGION,
-    timeoutSeconds: 540,
-    memory: '512MiB',
   },
   async () => {
-    let last: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    try{
     const accountsRef = db.collection('accounts');
+    const project = 'kensyu10149';
+    const queue = 'report-rollup-queue';
+    const location = REGION;
+
+    const queuePath = `projects/${project}/locations/${location}/queues/${queue}`;
+
+    const url = `https://asia-northeast1-kensyu10149.cloudfunctions.net/workerTaskReportRollup`;
+
+    let last: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+
     for (;;) {
       let q = accountsRef.orderBy(admin.firestore.FieldPath.documentId()).limit(100);
       if (last) {
@@ -115,14 +112,216 @@ export const scheduledTaskReportRollupDaily = onSchedule(
       const snap = await q.get();
       if (snap.empty) break;
       for (const userDoc of snap.docs) {
-        try {
-          await refreshAllRollupsForUser(db, userDoc.id);
-        } catch (e) {
-          console.error('scheduledTaskReportRollupDaily user failed', userDoc.id, e);
+        if (!userDoc.id) {
+          console.log('scheduledTaskReportRollupDaily: userDoc.id is undefined');
+          continue;
         }
+        const task = {
+          httpRequest: {
+            httpMethod: 'POST' as const,
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: Buffer.from(JSON.stringify({ userId: userDoc.id }), 'utf-8').toString('base64'),
+          },
+        };
+        await tasksClient.createTask({
+          parent: queuePath,
+          task,
+        });
       }
+
       last = snap.docs[snap.docs.length - 1];
       if (snap.size < 100) break;
     }
-  },
+    console.log('scheduledTaskReportRollupDaily: done');
+  } catch (e) {
+    console.error('scheduledTaskReportRollupDaily: error', e);
+    throw e;
+  }
+},
 );
+      
+export const workerTaskReportRollup = functions
+  .region(REGION)
+  .https.onRequest(async (req, res) => {
+    const { userId } = req.body;
+
+    if (!userId) {
+      res.status(400).send('userId is required');
+      return;
+    }
+
+    try {
+      await refreshAllRollupsForUser(db, userId);
+      res.status(200).send(`Success: ${userId}`);
+    } catch (e) {
+      console.error('Worker failed', userId, e);
+      res.status(500).send('Internal Server Error');
+    }
+});
+
+
+
+// 幽霊データを削除
+export const cleanupOrphanedTasks = onCall({ region: REGION }, async (request) => {
+  const aliveUserSnap = await db.collection('projects').get();
+  const aliveUserIds = new Set(aliveUserSnap.docs.map(doc => doc.id));
+
+  //const allTasksSnap = await db.collectionGroup('tasks').get();
+  const allTaskActivityLogsSnap = await db.collectionGroup('taskActivityLogs').get();
+  // const allReportRollupsSnap = await db.collectionGroup('reportRollups').get();
+  // const allProjectMenmbershipsSnap = await db.collectionGroup('projectMemberships').get();
+  // const allPrivateTaskListsSnap = await db.collectionGroup('privateTaskLists').get();
+  //const allConfigSnap = await db.collectionGroup('config').get();
+  
+  let batch = db.batch();
+  let count = 0;
+  const deletedUserIds = new Set<string>();
+
+  for (const taskDoc of allTaskActivityLogsSnap.docs) {
+    const pathSegments = taskDoc.ref.path.split('/');
+    const userId = pathSegments[1];
+
+    if (!aliveUserIds.has(userId)) {
+      batch.delete(taskDoc.ref);
+      deletedUserIds.add(userId);
+      count++;
+
+      if (count % 500 === 0) {
+        await batch.commit();
+        batch = db.batch();
+      }
+    }
+  }
+
+  await batch.commit();
+  return { 
+    message: `${count}件の幽霊データを削除しました。`,
+    orphanedUsers: Array.from(deletedUserIds) 
+  };
+});
+
+
+/**
+ * 汎用的な削除タスク追加関数
+ */
+async function enqueueCleanupTask(userId: string, path: string, subCollections: string[]) {
+  const project = 'kensyu10149';
+  const queue = 'data-cleanup-queue';
+  const url = `https://${REGION}-${project}.cloudfunctions.net/workerRecursiveCleanup`;
+
+  const task = {
+    httpRequest: {
+      httpMethod: 'POST' as const,
+      url,
+      headers: { 'Content-Type': 'application/json' },
+      body: Buffer.from(JSON.stringify({ userId, path, subCollections }), 'utf8').toString('base64'),
+    },
+  };
+  await tasksClient.createTask({
+    parent: `projects/${project}/locations/${REGION}/queues/${queue}`,
+    task,
+  });
+}
+
+// アカウント削除時
+export const onAccountDeleted = functions.region(REGION).firestore
+  .document('accounts/{userId}')
+  .onDelete(async (snap, context) => {
+    await enqueueCleanupTask(context.params.userId, snap.ref.path, ['config', 'privateTaskLists', 'reportRollups', 'projectMemberships', 'taskActivityLog', 'tasks']);
+  });
+
+// プロジェクト削除時
+export const onProjectDeleted = functions.region(REGION).firestore
+  .document('projects/{projectId}')
+  .onDelete(async (snap, context) => {
+    await enqueueCleanupTask('', snap.ref.path, ['authenticatedEmails', 'members', 'config','tasks','taskActivityLog','reportRollups'],);
+  });
+
+// プライベートリスト削除時
+export const onPrivateListDeleted = functions.region(REGION).firestore
+  .document('accounts/{userId}/privateTaskLists/{listId}')
+  .onDelete(async (snap, context) => {
+    await enqueueCleanupTask(context.params.userId, snap.ref.path, ['tasks','taskActivityLog','reportRollups']);
+  });
+
+  export const workerRecursiveCleanup = functions.region(REGION).https.onRequest(async (req, res) => {
+    const { path, subCollections, projectId } = req.body;
+  
+    if (!path || !subCollections) {
+      res.status(400).send('Missing path or subCollections');
+      return;
+    }
+  
+    try {
+      const parentRef = db.doc(path);
+
+      if (path.startsWith('projects/')) {
+        const actualProjectId = projectId || path.split('/')[1];
+        const membersSnap = await parentRef.collection('members').get();
+        
+        let mBatch = db.batch();
+        let mCount = 0;
+        
+        for (const mDoc of membersSnap.docs) {
+          const uid = mDoc.id;
+          const mRef = db.collection('accounts').doc(uid)
+                         .collection('projectMemberships').doc(actualProjectId);
+          
+          mBatch.delete(mRef);
+          mCount++;
+  
+          if (mCount % 500 === 0) {
+            await mBatch.commit();
+            mBatch = db.batch();
+          }
+        }
+        await mBatch.commit();
+        console.log(`Cleaned up ${mCount} memberships for project: ${actualProjectId}`);
+      }
+  
+      for (const collName of subCollections) {
+        const collRef = parentRef.collection(collName);
+        await deleteCollection(collRef);
+      }
+  
+      res.status(200).send(`Cleanup finished for ${path}`);
+    } catch (err) {
+      console.error('Cleanup worker failed:', err);
+      res.status(500).send(String(err));
+    }
+  });
+
+/**
+ * コレクション内の全ドキュメントをバッチ削除する補助関数
+ */
+async function deleteCollection(collectionRef: admin.firestore.CollectionReference) {
+  const query = collectionRef.limit(500);
+  
+  return new Promise((resolve, reject) => {
+    deleteQueryBatch(query, resolve).catch(reject);
+  });
+}
+
+async function deleteQueryBatch(query: admin.firestore.Query, resolve: any) {
+  const snapshot = await query.get();
+
+  if (snapshot.size === 0) {
+    resolve();
+    return;
+  }
+
+  const batch = db.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  await batch.commit();
+
+  // 次のバッチを再帰的に実行（末端まで消し切る）
+  process.nextTick(() => {
+    deleteQueryBatch(query, resolve);
+  });
+}

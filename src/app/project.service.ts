@@ -402,51 +402,7 @@ export class ProjectService {
 
   /** メンバーなら誰でも削除可能。サブコレクションと全員の membership を消す。 */
   async deleteProject(projectId: string, requesterUsername: string): Promise<void> {
-    const memberRef = doc(this.firestore, 'projects', projectId, 'members', requesterUsername);
-    const memberSnap = await getDoc(memberRef);
-    if (!memberSnap.exists()) {
-      throw new Error('このプロジェクトのメンバーではありません');
-    }
-
-    const tasksCol = collection(this.firestore, 'projects', projectId, 'tasks');
-    const membersCol = collection(this.firestore, 'projects', projectId, 'members');
-    const authEmailsCol = collection(
-      this.firestore,
-      'projects',
-      projectId,
-      PROJECT_AUTHENTICATED_EMAILS,
-    );
-    const pendingJoinCol = collection(
-      this.firestore,
-      'projects',
-      projectId,
-      PROJECT_PENDING_JOIN_REQUESTS,
-    );
-    const [tasksSnap, membersSnap, authEmailsSnap, pendingJoinSnap] = await Promise.all([
-      getDocs(tasksCol),
-      getDocs(membersCol),
-      getDocs(authEmailsCol),
-      getDocs(pendingJoinCol),
-    ]);
-
-    const ops: Promise<unknown>[] = [];
-    for (const d of tasksSnap.docs) {
-      ops.push(deleteDoc(d.ref));
-    }
-    for (const d of membersSnap.docs) {
-      const uname = d.id;
-      ops.push(deleteDoc(d.ref));
-      ops.push(
-        deleteDoc(doc(this.firestore, 'accounts', uname, 'projectMemberships', projectId)),
-      );
-    }
-    for (const d of authEmailsSnap.docs) {
-      ops.push(deleteDoc(d.ref));
-    }
-    for (const d of pendingJoinSnap.docs) {
-      ops.push(deleteDoc(d.ref));
-    }
-    ops.push(deleteDoc(doc(this.firestore, 'projects', projectId)));
-    await Promise.all(ops);
+    await this.assertIsProjectMember(projectId, requesterUsername);
+    await deleteDoc(doc(this.firestore, 'projects', projectId));
   }
 }

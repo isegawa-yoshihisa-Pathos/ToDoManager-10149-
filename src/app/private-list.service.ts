@@ -10,6 +10,7 @@ import {
   setDoc,
   updateDoc,
   writeBatch,
+  deleteField,
 } from '@angular/fire/firestore';
 
 @Injectable({ providedIn: 'root' })
@@ -42,26 +43,12 @@ export class PrivateListService {
     await setDoc(this.privateUiDoc(username), { defaultListLabel: name }, { merge: true });
   }
 
-  /** 追加リストと `tasks` サブコレクションを削除（500件超はバッチ分割） */
+  // 追加リストと `tasks` サブコレクションを削除
   async deleteExtraList(username: string, listId: string): Promise<void> {
-    const tasksCol = collection(
-      this.firestore,
-      'accounts',
-      username,
-      'privateTaskLists',
-      listId,
-      'tasks',
-    );
     const listRef = doc(this.firestore, 'accounts', username, 'privateTaskLists', listId);
     const kanbanRef = doc(this.firestore, 'accounts', username, 'config', `kanban_pl_${listId}`);
-    const appearanceRef = doc(this.firestore, 'accounts', username, 'config', 'TabAppearance', 'colors');
-    let snap = await getDocs(tasksCol);
-    while (!snap.empty) {
-      const batch = writeBatch(this.firestore);
-      snap.docs.forEach((d) => batch.delete(d.ref));
-      await batch.commit();
-      snap = await getDocs(tasksCol);
-    }
+    const colorRef = doc(this.firestore, 'accounts', username, 'config', 'tabAppearance');
+    await updateDoc(colorRef, {[`colors.pl:${listId}`]: deleteField()});
     await deleteDoc(listRef);
     await deleteDoc(kanbanRef);
   }

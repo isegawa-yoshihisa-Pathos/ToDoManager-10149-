@@ -72,6 +72,9 @@
                 class="task-cal-day-cell task-cal-day-cell--month-pick"
                 [class.other-month]="!cell.inMonth"
                 [class.is-today]="isToday(cell.date)"
+                [class.is-holiday]="isHoliday(cell.date)"
+                [matTooltip]="getHolidayName(cell.date) ?? ''"
+                [matTooltipDisabled]="!isHoliday(cell.date)"
                 role="button"
                 tabindex="0"
                 [attr.aria-label]="monthDayOpenAriaLabel(cell.date)"
@@ -185,6 +188,8 @@
         @for (row of weekTimelineRows; track row.date.getTime()) {
           <div class="task-cal-week-h-side" 
             [class.is-today]="isToday(row.date)"
+            [matTooltip]="getHolidayName(row.date) ?? ''"
+            [matTooltipDisabled]="!isHoliday(row.date)"
             role="button"
             tabindex="0"
             (click)="pickWeekDay(row.date)"
@@ -193,8 +198,8 @@
             (contextmenu)="onDayContextMenu($event, row.date)"
           >
             <div class="task-cal-week-h-side-label">
-              <span class="task-cal-week-h-dmd">{{ row.date.getMonth() + 1 }}/{{ row.date.getDate() }}</span>
-              <span class="task-cal-week-h-dow">{{ weekdayLabelForDate(row.date) }}</span>
+              <span class="task-cal-week-h-dmd" [class.is-holiday]="isHoliday(row.date)">{{ row.date.getMonth() + 1 }}/{{ row.date.getDate() }}</span>
+              <span class="task-cal-week-h-dow" [class.is-holiday]="isHoliday(row.date)">{{ weekdayLabelForDate(row.date) }}</span>
             </div>
           </div>
           <div

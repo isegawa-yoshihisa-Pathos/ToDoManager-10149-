@@ -176,8 +176,14 @@ export class TaskReport implements OnInit, OnDestroy {
       this.applyEmptyRollup();
       return;
     }
-    const key = taskListViewStorageKey(this.taskScope);
-    const docRef = doc(this.firestore, 'accounts', userId, 'reportRollups', key);
+    let docRef;
+    if (this.taskScope.kind === 'project') {
+      docRef = doc(this.firestore, 'projects', this.taskScope.projectId, 'reportRollups', 'latest');
+    } else if (this.taskScope.privateListId === 'default') {
+      docRef = doc(this.firestore, 'accounts', userId, 'reportRollups', 'latest');
+    } else {
+      docRef = doc(this.firestore, 'accounts', userId, 'privateTaskLists', this.taskScope.privateListId, 'reportRollups', 'latest');
+    }
     const snapshot = await getDoc(docRef);
     if (!snapshot.exists()) {
       this.applyEmptyRollup();

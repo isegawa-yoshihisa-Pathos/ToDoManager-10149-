@@ -15,6 +15,7 @@ import { taskScheduleMode, timestampLikeToDate } from '../task-schedule';
 import { TaskCalendarGranularity, TaskCalendarWeekdayStart, MonthWeekRow, MonthWeekGridRangeChip, MonthWeekGridDayChip, MonthWeekCellModel } from './task-calendar.model';
 import { CALENDAR_MONTH_MAX_PER_DAY, CALENDAR_WEEK_MAX_PER_DAY, CALENDAR_DAY_MAX, CALENDAR_TIMELINE_LANE_HEIGHT_PX, CALENDAR_DAY_VIEW_LANE_HEIGHT_PX, CALENDAR_DAY_MIN_TIMELINE_TRACK_HEIGHT_PX, CALENDAR_TIMELINE_AXIS_ROW_H_PX, CALENDAR_DAY_TIMELINE_START_HOUR, CALENDAR_DAY_TIMELINE_END_HOUR } from './task-calendar.model';
 import { DayDeadlineEntry, DayTimelineBlock } from './task-calendar.model';
+import { isNationalHoliday } from '../holiday.service';
 export * from './task-calendar.model';
 
 function startOfDay(d: Date): Date {
@@ -315,6 +316,14 @@ export class TaskCalendar {
     return this.taskScope.kind;
   }
 
+  isHoliday(d: Date): boolean {
+    return isNationalHoliday(d) !== null || d.getDay() === 0;
+  }
+  
+  getHolidayName(d: Date): string | null {
+    return isNationalHoliday(d);
+  }
+
   onClickIntegrateButton(): void {
     this.openIntegrateDialog.emit();
   }
@@ -520,9 +529,6 @@ export class TaskCalendar {
     return this.nowLineLeftPctForDate(this.viewDate);
   }
 
-  /**
-   * 週表示：各日 1 行の横タイムライン（日表示と同ロジック）。
-   */
   get weekTimelineRows(): Array<{
     date: Date;
     blocks: DayTimelineBlock[];
@@ -657,10 +663,6 @@ export class TaskCalendar {
     return this.tasksForDaySorted(this.viewDate);
   }
 
-  /**
-   * 月表示：週を 5 行×7 列の CSS Grid で表現する。
-   * 複数日ウィンドウは複数列にまたがる 1 チップ、単日はその日の列で複数日に使われていない行に積む。
-   */
   get monthWeekRows(): MonthWeekRow[] {
     const vm = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth(), 1);
     const weeks = buildMonthWeeks(vm, this.weekStartsMonday);
