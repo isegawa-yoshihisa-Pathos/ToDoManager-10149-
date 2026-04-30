@@ -187,7 +187,7 @@
       </div>
     }
 
-    @if (hasSubtasks()) {
+    @if (isNotSubtask()) {
       <div class="field subtasks-field">
         <span class="field-label">子タスク</span>
         <button
@@ -200,7 +200,8 @@
           <span class="subtasks-chevron" aria-hidden="true">{{ subtasksExpanded ? '▲' : '▼' }}</span>
           <span>{{ subtasks.length }} 件</span>
         </button>
-        @if (subtasksExpanded) {
+        <button mat-stroked-button type="button" (click)="onOpenAddSubtask()" class="subtasks-create-btn">子タスクを作成</button>
+        @if (hasSubtasks() && subtasksExpanded) {
           <ul class="subtasks-list">
             @for (st of subtasks; track st.id) {
               <li class="subtasks-item">

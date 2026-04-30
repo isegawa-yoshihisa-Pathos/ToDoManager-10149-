@@ -35,17 +35,19 @@
       </div>
     </section>
 
-    <p class="task-report-rollup-note">
-      指標は毎朝 7:00（日本時間）に自動更新されます。
-      @if (rollupGeneratedAt) {
-        <span class="task-report-rollup-time">最終更新: {{ rollupGeneratedAt | date:'yyyy/MM/dd HH:mm' }}</span>
-      }
-    </p>
-    <button mat-stroked-button type="button" (click)="forceRefreshRollup()" [disabled]="rollupRefreshing">
-      {{ rollupRefreshing ? '更新中…' : '更新' }}
-    </button>
     <section class="task-report-section" aria-labelledby="report-metrics-heading">
-      <h2 id="report-metrics-heading" class="task-report-h2">直近7日・今後7日</h2>
+      <div class="task-report-metrics-toolbar">
+        <h2 id="report-metrics-heading" class="task-report-h2">直近7日・今後7日</h2>
+        <p class="task-report-rollup-note">
+          指標は毎朝 7:00（日本時間）に自動更新されます。
+          @if (rollupGeneratedAt) {
+            <span class="task-report-rollup-time">最終更新: {{ rollupGeneratedAt | date:'yyyy/MM/dd HH:mm' }}</span>
+          }
+        </p>
+        <button mat-stroked-button type="button" class="task-report-refresh-button" (click)="forceRefreshRollup()" [disabled]="rollupRefreshing">
+          {{ rollupRefreshing ? '更新中…' : '更新' }}
+        </button>
+      </div>
       <div class="task-report-metrics">
         <div class="task-report-metric">
           <div class="task-report-metric-label">過去7日間に追加されたタスク</div>

@@ -25,8 +25,51 @@
 
 .card-title {
   margin: 0 0 12px;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 600;
+}
+
+
+.invited-projects-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invited-project-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.invited-projects-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.project-id {
+  font-size: 15px;
+  word-break: break-all;
+}
+
+.invited-at {
+  padding-left: 10px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.invited-project-actions {
+  margin-left: auto;
+}
+
+.approve-button {
+  color: #008000;
+}
+
+.cancel-button {
+  color: #b80000;
 }
 
 .hint {

@@ -29,12 +29,6 @@ export function normalizeAccountEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** 認証済みメールアドレス（ドキュメント ID = メール小文字）。作成・フォーム・参加申請の承認で追加。 */
-export const PROJECT_AUTHENTICATED_EMAILS = 'authenticatedEmails';
-
-/** 未認証での参加試行（ドキュメント ID = ユーザー UID）。承認で認証フォルダへ移しメンバー化、拒否で削除。 */
-export const PROJECT_PENDING_JOIN_REQUESTS = 'pendingJoinRequests';
-
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
   private readonly firestore = inject(Firestore);
@@ -138,15 +132,20 @@ export class ProjectService {
       };
     }
 
-    const authenticatedRef = doc(
-      this.firestore,
-      'projects',
-      projectId,
-      PROJECT_AUTHENTICATED_EMAILS,
-      email,
-    );
+    const authenticatedRef = doc(this.firestore, 'projects', projectId, 'authenticatedEmails', email);
+    const invitedRef = doc(this.firestore, 'projects', projectId, 'invitedEmails', email);
+    const invitedProjectRef = doc(this.firestore, 'accounts', userId, 'invitedProjects', projectId);
     const authenticatedSnap = await getDoc(authenticatedRef);
-    if (authenticatedSnap.exists()) {
+    const invitedSnap = await getDoc(invitedRef);
+    const invitedProjectSnap = await getDoc(invitedProjectRef);
+    if (authenticatedSnap.exists() || invitedSnap.exists() || invitedProjectSnap.exists()) {
+      if (!authenticatedSnap.exists()) {
+        const data = invitedSnap.data() as { invitedBy: string };
+        const invitedBy = data.invitedBy;
+        await this.ensureAuthenticatedEmailRecord(projectId, email, invitedBy);
+        await deleteDoc(invitedProjectRef);
+        await deleteDoc(invitedRef);
+      }
       await this.addMember(projectId, userId);
       await this.saveMembership(userId, projectId, projectName);
       return {
@@ -156,7 +155,7 @@ export class ProjectService {
     }
 
     await setDoc(
-      doc(this.firestore, 'projects', projectId, PROJECT_PENDING_JOIN_REQUESTS, userId),
+      doc(this.firestore, 'projects', projectId, 'pendingJoinRequests', userId),
       {
         emailLower: email,
         requestedAt: serverTimestamp(),
@@ -166,8 +165,48 @@ export class ProjectService {
     return { status: 'pendingApproval', projectId, projectName };
   }
 
-  /** 設定画面: メールを認証済みフォルダに追加（パスワード参加を許可） */
-  async grantAuthenticatedEmail(
+  async approveInvitation(
+    projectIdRaw: string,
+    userId: string,
+  ): Promise<{ projectId: string; projectName: string }> {
+    const projectId = this.assertProjectId(projectIdRaw);
+    const emailRaw = this.auth.currentUser?.email;
+    const email = emailRaw ? normalizeAccountEmail(emailRaw) : '';
+    if (!email) {
+      throw new Error('ログイン中のメールアドレスが取得できません。');
+    }
+    const projectRef = doc(this.firestore, 'projects', projectId);
+    const snap = await getDoc(projectRef);
+    if (!snap.exists()) {
+      throw new Error('プロジェクトが見つかりません。プロジェクトIDとパスワードを確認してください。');
+    }
+    const data = snap.data() as { password?: string; name?: string };
+    const projectName = typeof data['name'] === 'string' ? data['name'] : projectId;
+
+    const authenticatedRef = doc(this.firestore, 'projects', projectId, 'authenticatedEmails', email);
+    const invitedRef = doc(this.firestore, 'projects', projectId, 'invitedEmails', email);
+    const invitedProjectRef = doc(this.firestore, 'accounts', userId, 'invitedProjects', projectId);
+    const authenticatedSnap = await getDoc(authenticatedRef);
+    const invitedSnap = await getDoc(invitedRef);
+    const invitedProjectSnap = await getDoc(invitedProjectRef);
+    if (authenticatedSnap.exists() || invitedSnap.exists() || invitedProjectSnap.exists()) {
+      if (!authenticatedSnap.exists()) {
+        const data = invitedSnap.data() as { invitedBy: string };
+        const invitedBy = data.invitedBy;
+        await this.ensureAuthenticatedEmailRecord(projectId, email, invitedBy);
+        await deleteDoc(invitedProjectRef);
+        await deleteDoc(invitedRef);
+      }
+      await this.addMember(projectId, userId);
+      await this.saveMembership(userId, projectId, projectName);
+      return {projectId, projectName};
+    }
+    throw new Error('招待が見つかりません');
+  }
+
+
+  /** 設定画面: メールを招待済みフォルダに追加 */
+  async grantInvitedEmail(
     projectId: string,
     emailRaw: string,
     adminUserId: string,
@@ -177,8 +216,20 @@ export class ProjectService {
     if (!email || !email.includes('@')) {
       throw new Error('有効なメールアドレスを入力してください');
     }
+    const accountCol = collection(this.firestore, 'accounts');
+    const accountSnap = await getDocs(accountCol);
+    for (const account of accountSnap.docs) {
+      const accountData = account.data() as { emailLower?: string };
+      if (accountData['emailLower'] === email) {
+        await setDoc(doc(this.firestore, 'accounts', account.id, 'invitedProjects', projectId), {
+          invitedAt: serverTimestamp(),
+          invitedBy: adminUserId,
+        });
+        break;
+      }
+    }
     await setDoc(
-      doc(this.firestore, 'projects', projectId, PROJECT_AUTHENTICATED_EMAILS, email),
+      doc(this.firestore, 'projects', projectId, 'invitedEmails', email),
       {
         invitedAt: serverTimestamp(),
         invitedBy: adminUserId,
@@ -197,7 +248,7 @@ export class ProjectService {
       this.firestore,
       'projects',
       projectId,
-      PROJECT_PENDING_JOIN_REQUESTS,
+      'pendingJoinRequests',
       requestUserId,
     );
     const reqSnap = await getDoc(reqRef);
@@ -233,7 +284,7 @@ export class ProjectService {
       this.firestore,
       'projects',
       projectId,
-      PROJECT_PENDING_JOIN_REQUESTS,
+      'pendingJoinRequests',
       requestUserId,
     );
     const reqSnap = await getDoc(reqRef);
@@ -251,6 +302,24 @@ export class ProjectService {
     }
   }
 
+  async cancelInvitation(projectId: string, email: string): Promise<void> {
+    const invitedRef = doc(this.firestore, 'projects', projectId, 'invitedEmails', email);
+    const invitedSnap = await getDoc(invitedRef);
+    if (!invitedSnap.exists()) {
+      throw new Error('招待が見つかりません');
+    }
+    await deleteDoc(invitedRef);
+    const accountCol = collection(this.firestore, 'accounts');
+    const accountSnap = await getDocs(accountCol);
+    for (const account of accountSnap.docs) {
+      const accountData = account.data() as { emailLower?: string };
+      if (accountData['emailLower'] === email){
+        await deleteDoc(doc(this.firestore, 'accounts', account.id, 'invitedProjects', projectId));
+        break;
+      }
+    }
+  }
+
   /** `authenticatedEmails` にメールを登録（認証済み扱い） */
   private async ensureAuthenticatedEmailRecord(
     projectId: string,
@@ -262,7 +331,7 @@ export class ProjectService {
       return;
     }
     await setDoc(
-      doc(this.firestore, 'projects', projectId, PROJECT_AUTHENTICATED_EMAILS, email),
+      doc(this.firestore, 'projects', projectId, 'authenticatedEmails', email),
       { invitedAt: serverTimestamp(), invitedBy: invitedByUid },
       { merge: true },
     );
@@ -276,16 +345,13 @@ export class ProjectService {
     if (accSnap.exists()) {
       const d = accSnap.data() as {
         displayName?: string;
-        username?: string;
         avatarUrl?: string;
         emailLower?: string;
       };
       displayName =
         typeof d['displayName'] === 'string' && d['displayName'].trim() !== ''
           ? d['displayName'].trim()
-          : typeof d['username'] === 'string' && d['username'].trim() !== ''
-            ? d['username'].trim()
-            : userId;
+          : userId;
       if (typeof d['avatarUrl'] === 'string' && d['avatarUrl'].trim() !== '') {
         avatarUrl = d['avatarUrl'].trim();
       }
@@ -297,7 +363,6 @@ export class ProjectService {
     const payload: Record<string, unknown> = {
       userId,
       displayName,
-      username: userId,
       joinedAt: serverTimestamp(),
     };
     if (avatarUrl) {
@@ -358,22 +423,28 @@ export class ProjectService {
     await batch.commit();
   }
 
-  /** 自分だけメンバーと参加一覧から外す。プロジェクト本体・他メンバー・タスクは残る。 */
-  async leaveProject(projectId: string, username: string): Promise<void> {
-    const memberRef = doc(this.firestore, 'projects', projectId, 'members', username);
+  /** プロジェクトから脱退させる。再参加は再認証が必要。最後の人は抜けられない。 */
+  async leaveProject(projectId: string, userId: string, adminUserId: string): Promise<void> {
+    await this.assertIsProjectMember(projectId, adminUserId);
+    const memberRef = doc(this.firestore, 'projects', projectId, 'members', userId);
     const memberSnap = await getDoc(memberRef);
     if (!memberSnap.exists()) {
       throw new Error('このプロジェクトのメンバーではありません');
     }
-    const membershipRef = doc(this.firestore, 'accounts', username, 'projectMemberships', projectId);
+    const membersCol = collection(this.firestore, 'projects', projectId, 'members');
+    const membersSnap = await getDocs(membersCol);
+    if (membersSnap.docs.length === 1) {
+      throw new Error('最後のメンバーは抜けられません\nプロジェクトを削除してください');
+    }
+    const membershipRef = doc(this.firestore, 'accounts', userId, 'projectMemberships', projectId);
 
     let emailForApproval: string | null = null;
     const curUid = this.auth.currentUser?.uid;
-    if (curUid === username) {
+    if (curUid === userId) {
       const e = this.auth.currentUser?.email;
       emailForApproval = e ? normalizeAccountEmail(e) : null;
     } else {
-      const accSnap = await getDoc(doc(this.firestore, 'accounts', username));
+      const accSnap = await getDoc(doc(this.firestore, 'accounts', userId));
       if (accSnap.exists()) {
         const d = accSnap.data() as { emailLower?: string };
         if (typeof d['emailLower'] === 'string' && d['emailLower'].trim() !== '') {
@@ -388,7 +459,7 @@ export class ProjectService {
             this.firestore,
             'projects',
             projectId,
-            PROJECT_AUTHENTICATED_EMAILS,
+            'authenticatedEmails',
             emailForApproval,
           )
         : null;

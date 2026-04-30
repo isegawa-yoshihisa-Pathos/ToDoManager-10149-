@@ -10,7 +10,6 @@ import { MatMenuModule } from '@angular/material/menu';
 import { Task } from '../../models/task';
 import { TaskScope, taskDetailScopeParam } from '../task-scope';
 import { clampTaskPriority } from '../task-priority';
-import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 import { taskScheduleMode, timestampLikeToDate } from '../task-schedule';
 import { TaskCalendarGranularity, TaskCalendarWeekdayStart, MonthWeekRow, MonthWeekGridRangeChip, MonthWeekGridDayChip, MonthWeekCellModel } from './task-calendar.model';
 import { CALENDAR_MONTH_MAX_PER_DAY, CALENDAR_WEEK_MAX_PER_DAY, CALENDAR_DAY_MAX, CALENDAR_TIMELINE_LANE_HEIGHT_PX, CALENDAR_DAY_VIEW_LANE_HEIGHT_PX, CALENDAR_DAY_MIN_TIMELINE_TRACK_HEIGHT_PX, CALENDAR_TIMELINE_AXIS_ROW_H_PX, CALENDAR_DAY_TIMELINE_START_HOUR, CALENDAR_DAY_TIMELINE_END_HOUR } from './task-calendar.model';
@@ -341,7 +340,6 @@ export class TaskCalendar {
     const scope = taskDetailScopeParam(
       task.calendarSourceScope ?? this.calendarSourceScope ?? this.taskScope,
     );
-    saveTaskShellScrollPosition();
     void this.router.navigate(['/task', scope, id], {
       queryParams: {
         from: this.taskDetailFrom,

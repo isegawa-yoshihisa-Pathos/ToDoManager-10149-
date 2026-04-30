@@ -319,6 +319,10 @@
   font-weight: 700;
 }
 
+.subtasks-create-btn {
+  margin-left: 8px;
+}
+
 .subtasks-list {
   list-style: none;
   margin: 10px 0 0;

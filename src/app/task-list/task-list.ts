@@ -22,7 +22,6 @@ import {
   taskDetailScopeParam,
   taskListViewStorageKey,
 } from '../task-scope';
-import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 import type { ProjectMemberRow } from '../../models/project-member';
 import {
   TaskCalendar,
@@ -388,9 +387,7 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
             const displayName =
               typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
                 ? data['displayName'].trim()
-                : typeof data['username'] === 'string' && data['username'].trim() !== ''
-                  ? data['username'].trim()
-                  : id;
+                : id;
             const avatarUrl =
               typeof data['avatarUrl'] === 'string' && data['avatarUrl'].trim() !== ''
                 ? data['avatarUrl'].trim()
@@ -712,7 +709,6 @@ export class TaskList implements OnInit, OnDestroy, OnChanges {
     if (ids.length < 2) {
       return;
     }
-    saveTaskShellScrollPosition();
     void this.router.navigate(
       ['/tasks', 'bulk-edit', taskDetailScopeParam(this.taskScope)],
       {

@@ -1,5 +1,4 @@
 rules_version = '2';
-// Firebase Console または `firebase deploy --only storage` でデプロイしてください。
 // チャット添付はクライアントが chat/ 以下へアップロードします。
 service firebase.storage {
   match /b/{bucket}/o {

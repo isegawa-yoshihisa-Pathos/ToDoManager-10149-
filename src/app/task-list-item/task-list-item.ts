@@ -20,7 +20,6 @@ import {
   isDisplayTruncated,
   TASK_TITLE_DISPLAY_MAX_CHARS,
 } from '../display-ellipsis';
-import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 import { isTaskOverdue, taskScheduleMode } from '../task-schedule';
 import { UserAvatar } from '../user-avatar/user-avatar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -200,7 +199,6 @@ export class TaskListItem implements OnInit {
       return;
     }
     const scope = taskDetailScopeParam(this.taskScope);
-    saveTaskShellScrollPosition();
     void this.router.navigate(['/task', scope, id], {
       queryParams: { from: 'list' },
     });

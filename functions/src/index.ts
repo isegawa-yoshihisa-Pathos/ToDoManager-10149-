@@ -230,14 +230,14 @@ async function enqueueCleanupTask(userId: string, path: string, subCollections: 
 export const onAccountDeleted = functions.region(REGION).firestore
   .document('accounts/{userId}')
   .onDelete(async (snap, context) => {
-    await enqueueCleanupTask(context.params.userId, snap.ref.path, ['config', 'privateTaskLists', 'reportRollups', 'projectMemberships', 'taskActivityLog', 'tasks']);
+    await enqueueCleanupTask(context.params.userId, snap.ref.path, ['config', 'privateTaskLists', 'reportRollups', 'projectMemberships', 'invitedProjects', 'taskActivityLog', 'tasks']);
   });
 
 // プロジェクト削除時
 export const onProjectDeleted = functions.region(REGION).firestore
   .document('projects/{projectId}')
   .onDelete(async (snap, context) => {
-    await enqueueCleanupTask('', snap.ref.path, ['authenticatedEmails', 'members', 'config','tasks','taskActivityLog','reportRollups'],);
+    await enqueueCleanupTask('', snap.ref.path, ['authenticatedEmails', 'invitedEmails', 'pendingJoinRequests', 'members', 'config','tasks','taskActivityLog','reportRollups'],);
   });
 
 // プライベートリスト削除時

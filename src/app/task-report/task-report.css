@@ -86,7 +86,6 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 8px 12px;
   margin-bottom: 12px;
 }
@@ -97,6 +96,10 @@
 }
 .task-report-rollup-time {
   margin-left: 0.5em;
+}
+
+.task-report-refresh-button {
+  margin-left: auto;
 }
 
 .task-report-legend-count {

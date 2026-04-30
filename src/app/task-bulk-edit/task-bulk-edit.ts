@@ -160,9 +160,7 @@ export class TaskBulkEdit implements OnInit {
             const displayName =
               typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
                 ? data['displayName'].trim()
-                : typeof data['username'] === 'string' && data['username'].trim() !== ''
-                  ? data['username'].trim()
-                  : id;
+                : id;
             const avatarUrl =
               typeof data['avatarUrl'] === 'string' && data['avatarUrl'].trim() !== ''
                 ? data['avatarUrl'].trim()

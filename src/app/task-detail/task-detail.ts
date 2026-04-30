@@ -17,6 +17,8 @@ import {
   where,
   orderBy,
   setDoc,
+  writeBatch,
+  increment,
   serverTimestamp,
   DocumentReference,
 } from '@angular/fire/firestore';
@@ -29,12 +31,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog } from '@angular/material/dialog';
+import { TaskFormDialog } from '../task-form-dialog/task-form-dialog';
 import { DEFAULT_TASK_LABEL_COLOR, TASK_COLOR_CHART } from '../task-colors';
-import {
-  clampTaskPriority,
-  DEFAULT_TASK_PRIORITY,
-  TASK_PRIORITY_OPTIONS,
-} from '../task-priority';
+import { clampTaskPriority, DEFAULT_TASK_PRIORITY, TASK_PRIORITY_OPTIONS } from '../task-priority';
 import { TASK_RETURN_QUERY } from '../task-return-query';
 import { ProjectSessionService, type TaskListViewPrefs } from '../project-session.service';
 import {
@@ -42,13 +42,7 @@ import {
   taskListViewStorageKeyFromDetailParam,
   taskScopeFromDetailRouteParam,
 } from '../task-scope';
-import {
-  firestoreStatusFields,
-  normalizeTaskStatusFromDoc,
-  TASK_STATUS_OPTIONS,
-  taskStatusLabel,
-  type TaskStatus,
-} from '../../models/task-status';
+import { firestoreStatusFields, normalizeTaskStatusFromDoc, TASK_STATUS_OPTIONS, taskStatusLabel, type TaskStatus } from '../../models/task-status';
 import type { TaskMessageAttachment } from '../../models/task-message';
 import type { ProjectMemberRow } from '../../models/project-member';
 import type { Task } from '../../models/task';
@@ -97,8 +91,8 @@ export class TaskDetail implements OnInit, OnDestroy {
   private readonly projectSession = inject(ProjectSessionService);
   private readonly taskActivityLog = inject(TaskActivityLogService);
   private readonly taskCollectionRef = inject(TaskCollectionReferenceService);
+  private readonly dialog = inject(MatDialog);
   @ViewChild('chatScroll') private chatScroll?: ElementRef<HTMLDivElement>;
-
   readonly colorChart = TASK_COLOR_CHART;
   readonly priorityOptions = TASK_PRIORITY_OPTIONS;
   readonly assigneeNone = '';
@@ -111,6 +105,9 @@ export class TaskDetail implements OnInit, OnDestroy {
 
   scopeParam = '';
   taskId = '';
+
+  parentTaskId: string | null = null;
+  loadedTask: Task | null = null;
 
   editTitle = '';
   editLabel: string = DEFAULT_TASK_LABEL_COLOR;
@@ -181,9 +178,7 @@ export class TaskDetail implements OnInit, OnDestroy {
             const displayName =
               typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
                 ? data['displayName'].trim()
-                : typeof data['username'] === 'string' && data['username'].trim() !== ''
-                  ? data['username'].trim()
-                  : id;
+                : id;
             const avatarUrl =
               typeof data['avatarUrl'] === 'string' && data['avatarUrl'].trim() !== ''
                 ? data['avatarUrl'].trim()
@@ -272,6 +267,122 @@ export class TaskDetail implements OnInit, OnDestroy {
     return this.subtasks.length > 0;
   }
 
+  isNotSubtask(): boolean {
+    return this.parentTaskId === null;
+  }
+
+  onOpenAddSubtask(): void {
+    const parent = this.loadedTask;
+    if (!parent?.id || !this.isNotSubtask()) {
+      return;
+    }
+    const taskScope = taskScopeFromDetailRouteParam(this.scopeParam);
+    this.openAddSubtask(taskScope, this.projectMembers, parent, null, (task) => {
+      void this.addSubtask(parent, task);
+    });
+  }
+  openAddSubtask(
+    taskScope: import('../task-scope').TaskScope,
+    projectMembers: ProjectMemberRow[],
+    parent: Task,
+    date: Date | null,
+    onSaved: (task: Task) => void,
+  ): void {
+    const ref = this.dialog.open(TaskFormDialog, {
+      width: 'min(96vw, 560px)',
+      autoFocus: 'first-tabbable',
+      data: {
+        taskScope: taskScope,
+        projectMembers: projectMembers,
+        dialogMode: 'subtask' as const,
+        parentTask: parent,
+        date,
+      },
+    });
+    ref.afterClosed().subscribe((task: Task | undefined) => {
+      if (task) {
+        onSaved(task);
+      }
+    });
+  }
+  private async addSubtask(parent: Task, task: Task): Promise<void> {
+    const userId = this.auth.userId();
+    const parentId = parent.id;
+    if (!userId || !parentId) {
+      return;
+    }
+    const taskScope = taskScopeFromDetailRouteParam(this.scopeParam);
+    const col = this.taskCollectionRef.tasksCollectionRef(userId, taskScope);
+    if (!col) {
+      return;
+    }
+    const batch = writeBatch(this.firestore);
+    const payload: Record<string, unknown> = {
+      title: task.title,
+      label: task.label,
+      ...firestoreStatusFields(task.status),
+      priority: task.priority,
+      description: task.description ?? '',
+      parentTaskId: parentId,
+    };
+    if (task.deadline) {
+      payload['deadline'] = Timestamp.fromDate(new Date(task.deadline));
+      payload['startAt'] = null;
+      payload['endAt'] = null;
+    } else if (task.startAt && task.endAt) {
+      payload['deadline'] = null;
+      payload['startAt'] = Timestamp.fromDate(new Date(task.startAt));
+      payload['endAt'] = Timestamp.fromDate(new Date(task.endAt));
+    } else {
+      payload['deadline'] = null;
+      payload['startAt'] = null;
+      payload['endAt'] = null;
+    }
+    if (taskScope.kind === 'project') {
+      const a = typeof task.assignee === 'string' ? task.assignee.trim() : '';
+      payload['assignee'] = a || null;
+    }
+    const pCol =
+      typeof parent.kanbanColumnId === 'string' && parent.kanbanColumnId.trim() !== ''
+        ? parent.kanbanColumnId.trim()
+        : '';
+    payload['kanbanColumnId'] = pCol;
+    const siblings = this.subtasks.filter((t) => t.parentTaskId === parentId);
+    let maxList = -1;
+    let maxKb = -1;
+    for (const t of siblings) {
+      const l = t.listOrderIndex;
+      if (typeof l === 'number' && !Number.isNaN(l)) {
+        maxList = Math.max(maxList, l);
+      }
+      const k = t.kanbanOrderIndex;
+      if (typeof k === 'number' && !Number.isNaN(k)) {
+        maxKb = Math.max(maxKb, k);
+      }
+    }
+    const nextList = maxList < 0 ? 0 : maxList + 1000;
+    const nextKb = maxKb < 0 ? 0 : maxKb + 1000;
+    payload['listOrderIndex'] = nextList;
+    payload['kanbanOrderIndex'] = nextKb;
+    payload['createdAt'] = serverTimestamp();
+    payload['updatedAt'] = serverTimestamp();
+    const subtaskRef = doc(col);
+    batch.set(subtaskRef, payload);
+    const parentRef = doc(col, parentId);
+    batch.update(parentRef, {
+      childTaskCount: increment(1),
+    });
+    try {
+      await batch.commit();
+      await this.taskActivityLog.logCreate(taskScope, {
+        subjectId: subtaskRef.id,
+        subjectTitle: task.title,
+      });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '子タスクの追加に失敗しました');
+    }
+  }
+
   subtaskStatusLabel(s: TaskStatus): string {
     return taskStatusLabel(s);
   }
@@ -282,7 +393,10 @@ export class TaskDetail implements OnInit, OnDestroy {
       return;
     }
     void this.router.navigate(['/task', this.scopeParam, id], {
-      queryParams: this.route.snapshot.queryParams,
+      queryParams: {
+        ...this.route.snapshot.queryParams,
+        parentReturnId: this.taskId,
+      },
     });
   }
 
@@ -362,6 +476,7 @@ export class TaskDetail implements OnInit, OnDestroy {
     this.notFound = false;
     this.saveError = null;
     this.chatSendError = null;
+    this.loadedTask = null;
     this.messagesSub?.unsubscribe();
     this.messagesSub = undefined;
     this.subtasksSub?.unsubscribe();
@@ -382,6 +497,7 @@ export class TaskDetail implements OnInit, OnDestroy {
       return;
     }
     const data = snap.data() as Record<string, unknown>;
+    this.loadedTask = mapFirestoreDocToTask({ ...data, id: snap.id });
     this.editTitle = typeof data['title'] === 'string' ? data['title'] : '';
     const lab = data['label'];
     this.editLabel =
@@ -389,6 +505,8 @@ export class TaskDetail implements OnInit, OnDestroy {
     const deadline = timestampLikeToDate(data['deadline']);
     const startAt = timestampLikeToDate(data['startAt']);
     const endAt = timestampLikeToDate(data['endAt']);
+    const pId = data['parentTaskId'];
+    this.parentTaskId = typeof pId === 'string' && pId.trim() !== '' ? pId.trim() : null;
     const mode = taskScheduleModeFromFields(deadline, startAt, endAt);
     if (mode === 'window' && startAt && endAt) {
       this.scheduleEditMode = 'window';
@@ -553,7 +671,11 @@ export class TaskDetail implements OnInit, OnDestroy {
     } catch (e) {
       console.error('task activity log after save failed:', e);
     }
-    this.navigateBackToTaskShell();
+    if (this.parentTaskId) {
+      this.navigateBackToParentTask();
+    } else {
+      this.navigateBackToTaskShell();
+    }
   }
 
   private chatStorageBasePath(messageId: string): string {
@@ -582,7 +704,7 @@ export class TaskDetail implements OnInit, OnDestroy {
     if (e && typeof e === 'object' && 'code' in e) {
       const code = String((e as { code?: string }).code);
       if (code === 'storage/unauthorized') {
-        return 'ファイルのアップロードが許可されていません。Firebase Console の Storage ルールで chat/ 配下の書き込みを許可してください。';
+        return 'ファイルのアップロードが許可されていません。';
       }
       if (code === 'storage/unauthenticated') {
         return 'ログインが必要です。';
@@ -668,6 +790,20 @@ export class TaskDetail implements OnInit, OnDestroy {
     void this.sendChat();
   }
 
+  navigateBackToParentTask(): void {
+    const parentReturnId = this.route.snapshot.queryParamMap.get('parentReturnId');
+    if (!parentReturnId) {
+      this.navigateBackToTaskShell();
+      return;
+    }
+    void this.router.navigate(['/task', this.scopeParam, parentReturnId], {
+      queryParams: {
+        ...this.route.snapshot.queryParams, 
+        parentReturnId: null,
+      },
+    });
+  }
+
   /** 一覧 or カレンダーへ（開いた経路に応じてクエリを付与） */
   navigateBackToTaskShell(): void {
     const q = this.route.snapshot.queryParamMap;
@@ -732,7 +868,11 @@ export class TaskDetail implements OnInit, OnDestroy {
   }
 
   back(): void {
-    this.navigateBackToTaskShell();
+    if (this.parentTaskId) {
+      this.navigateBackToParentTask();
+    } else {
+      this.navigateBackToTaskShell();
+    }
   }
 
   backButtonLabel(): string {
@@ -742,6 +882,9 @@ export class TaskDetail implements OnInit, OnDestroy {
     }
     if (from === 'kanban') {
       return '← カンバンへ戻る';
+    }
+    if (this.parentTaskId) {
+      return '← 親タスクへ戻る';
     }
     return '← 一覧へ戻る';
   }
@@ -757,7 +900,11 @@ export class TaskDetail implements OnInit, OnDestroy {
     }
     try {
       await deleteDoc(ref);
-      this.navigateBackToTaskShell();
+      if (this.parentTaskId) {
+        this.navigateBackToParentTask();
+      } else {
+        this.navigateBackToTaskShell();
+      }
     } catch (e) {
       this.saveError = e instanceof Error ? e.message : '削除に失敗しました';
     }

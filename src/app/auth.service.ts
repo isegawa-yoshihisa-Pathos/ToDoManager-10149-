@@ -250,7 +250,7 @@ export class AuthService {
     const membershipsCol = collection(this.firestore, 'accounts', uid, 'projectMemberships');
     const membershipsSnap = await getDocs(membershipsCol);
     for (const d of membershipsSnap.docs) {
-      await this.projectService.leaveProject(d.id, uid);
+      await this.projectService.leaveProject(d.id, uid, uid);
     }
 
     const accRef = doc(this.firestore, 'accounts', uid);

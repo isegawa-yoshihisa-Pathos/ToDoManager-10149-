@@ -43,7 +43,6 @@ import {
 import { TabColorPickerDialog } from '../tab-color-picker-dialog/tab-color-picker-dialog';
 import { SignOutLifecycleService } from '../sign-out-lifecycle.service';
 import { displayEllipsis, isDisplayTruncated } from '../display-ellipsis';
-import { restoreTaskShellScrollPosition } from '../task-shell-scroll';
 
 type UserWindowParsed =
   | { kind: 'private'; listId: string }
@@ -266,7 +265,6 @@ export class UserWindow implements OnInit, OnDestroy {
       )
       .subscribe((e) => {
         this.syncActivePrivateFromUrl(e.urlAfterRedirects);
-        restoreTaskShellScrollPosition();
       });
 
     this.signOutLifecycle.beforeSignOut$

@@ -8,7 +8,7 @@
         [(ngModel)]="newTask.title"
         name="title"
         required
-        autofocus
+        cdkFocusInitial
         (keydown.enter)="onTitleKeydownEnter($event)"
       />
     </mat-form-field>

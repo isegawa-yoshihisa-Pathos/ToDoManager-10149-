@@ -17,7 +17,7 @@ import { map } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { ProjectMembers } from '../project-members/project-members';
 import { AuthService } from '../auth.service';
-import { ProjectService, PROJECT_PENDING_JOIN_REQUESTS } from '../project.service';
+import { ProjectService } from '../project.service';
 import type { TaskMessageAttachment } from '../../models/task-message';
 
 @Component({
@@ -92,7 +92,7 @@ export class ProjectSettings implements OnInit, OnDestroy {
     if (!this.projectId || this.notFound) {
       return;
     }
-    const col = collection(this.firestore, 'projects', this.projectId, PROJECT_PENDING_JOIN_REQUESTS);
+    const col = collection(this.firestore, 'projects', this.projectId, 'pendingJoinRequests');
     this.joinReqSub = collectionData(col, { idField: 'userId' })
       .pipe(
         map((rows) =>
@@ -246,7 +246,7 @@ export class ProjectSettings implements OnInit, OnDestroy {
     this.approveError = null;
     this.approveSaving = true;
     try {
-      await this.projectService.grantAuthenticatedEmail(this.projectId, this.approveEmailInput, adminId);
+      await this.projectService.grantInvitedEmail(this.projectId, this.approveEmailInput, adminId);
       this.approveEmailInput = '';
     } catch (e) {
       this.approveError = e instanceof Error ? e.message : '認証に失敗しました';
@@ -292,13 +292,13 @@ export class ProjectSettings implements OnInit, OnDestroy {
     }
     if (
       !confirm(
-        `「${this.projectName}」から脱退します。タブ一覧からも消えます。あとから「参加」で再参加できます。よろしいですか？`,
+        `「${this.projectName}」から脱退します。再参加にはメールの認証が必要です。よろしいですか？`,
       )
     ) {
       return;
     }
     try {
-      await this.projectService.leaveProject(this.projectId, userId);
+      await this.projectService.leaveProject(this.projectId, userId, userId);
       void this.router.navigate(['/user-window']);
     } catch (e) {
       alert(e instanceof Error ? e.message : '脱退に失敗しました');

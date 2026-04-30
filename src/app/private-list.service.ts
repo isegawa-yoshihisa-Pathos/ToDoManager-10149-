@@ -9,7 +9,6 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-  writeBatch,
   deleteField,
 } from '@angular/fire/firestore';
 

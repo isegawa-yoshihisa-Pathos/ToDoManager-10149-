@@ -48,6 +48,17 @@
     </div>
     <div class="form-card">
       <h3 class="card-title">プロジェクトに参加</h3>
+      <ul class="invited-projects-list">
+        <h4 class="invited-projects-title">招待中のプロジェクト</h4> 
+        <li class="invited-project-row" *ngFor="let invitedProject of invitedProjects">
+          <span class="project-id">ID: {{ invitedProject.projectId }}</span>
+          <span class="invited-at">{{ invitedProject.invitedAt.toDate() | date: 'yyyy/MM/dd HH:mm' }}</span>
+          <div class="invited-project-actions">
+            <mat-icon (click)="onApproveInvitation(invitedProject.projectId)" class="approve-button" matTooltip="承認">check</mat-icon>
+            <mat-icon (click)="onCancelInvitation(invitedProject.projectId)" class="cancel-button" matTooltip="キャンセル">close</mat-icon>
+          </div>
+        </li>
+      </ul>
       <p class="hint">
         プロジェクトID・パスワードに加え、管理者によるメール認証（または事前のメール許可）が必要です。
       </p>

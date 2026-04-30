@@ -4,7 +4,6 @@ import { Router } from '@angular/router';
 import { TaskScope } from '../task-scope';
 import { Task } from '../../models/task';
 import { TaskListDataService } from './task-list-data.service';
-import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 import { TaskFormDialog } from '../task-form-dialog/task-form-dialog';
 import { TaskDuplicateDialog } from '../task-duplicate-dialog/task-duplicate-dialog';
 import type { ProjectMemberRow } from '../../models/project-member';
@@ -60,7 +59,6 @@ export class TaskListContextActionsService {
     taskscope: TaskScope,
     from: 'list' | 'calendar' | 'kanban' | 'integrated-calendar',
   ): void {
-    saveTaskShellScrollPosition();
     const withCal = from === 'calendar' || from === 'integrated-calendar';
     void this.router.navigate(['/task', taskDetailScopeParam(taskscope), task.id], {
       queryParams: {

@@ -45,7 +45,6 @@ import { TaskActivityLogService } from '../task-activity-log.service';
 import { TaskListDataService } from '../task-list/task-list-data.service';
 import { TaskListContextActionsService } from '../task-list/task-list-context-actions.service';
 import { TaskListTaskCtxMenu } from '../task-list/task-list-ctx-menu';
-import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 import {
   CalendarScopeDialog,
   type CalendarScopeCandidate,
@@ -630,9 +629,7 @@ export class IntegrateTaskCalendar implements OnInit, OnDestroy {
             const displayName =
               typeof data['displayName'] === 'string' && data['displayName'].trim() !== ''
                 ? data['displayName'].trim()
-                : typeof data['username'] === 'string' && data['username'].trim() !== ''
-                  ? data['username'].trim()
-                  : id;
+                : id;
             const avatarUrl =
               typeof data['avatarUrl'] === 'string' && data['avatarUrl'].trim() !== ''
                 ? data['avatarUrl'].trim()
@@ -734,7 +731,6 @@ export class IntegrateTaskCalendar implements OnInit, OnDestroy {
     const scope = this.ctxTask
       ? this.resolveTaskScope(this.ctxTask)
       : this.fallbackTaskScope;
-    saveTaskShellScrollPosition();
     void this.router.navigate(['/tasks', 'bulk-edit', taskDetailScopeParam(scope)], {
       queryParams: { ids: ids.join(','), from: 'list' },
     });

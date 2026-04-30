@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Output, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../auth.service';
 import { ProjectService } from '../project.service';
+import { Firestore, collection, getDocs, Timestamp } from '@angular/fire/firestore';
 
 export interface ProjectOpenedPayload {
   projectId: string;
@@ -21,10 +22,10 @@ export interface ProjectOpenedPayload {
   templateUrl: './project-hub.html',
   styleUrl: './project-hub.css',
 })
-export class ProjectHub {
+export class ProjectHub implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly projectService = inject(ProjectService);
-
+  private readonly firestore = inject(Firestore);
   @Output() projectOpened = new EventEmitter<ProjectOpenedPayload>();
   /** プライベートリストを追加（親でタブを切り替え） */
   @Output() addPrivateList = new EventEmitter<void>();
@@ -34,6 +35,12 @@ export class ProjectHub {
   createPassword = '';
   joinProjectId = '';
   joinPassword = '';
+
+  invitedProjects: { projectId: string, invitedAt: Timestamp }[] = [];
+
+  ngOnInit(): void {
+    this.getInvitedProjects();
+  }
 
   async onCreateProject(): Promise<void> {
     const userId = this.auth.userId();
@@ -64,6 +71,27 @@ export class ProjectHub {
     this.addPrivateList.emit();
   }
 
+  async getInvitedProjects(): Promise<void> {
+    const userId = this.auth.userId();
+    if (!userId) {
+      return;
+    }
+    const invitedProjects = collection(this.firestore, 'accounts', userId, 'invitedProjects');
+    const invitedProjectsSnap = await getDocs(invitedProjects);
+    this.invitedProjects = invitedProjectsSnap.docs.map((doc) => {
+      return { projectId: doc.id, invitedAt: doc.data()['invitedAt'] as Timestamp };
+    });
+  }
+
+  async onCancelInvitation(projectId: string): Promise<void> {
+    const email = this.auth.authEmail();
+    if (!email) {
+      return;
+    }
+    await this.projectService.cancelInvitation(projectId, email);
+    this.getInvitedProjects();
+  }
+
   async onJoinProject(): Promise<void> {
     const userId = this.auth.userId();
     if (!userId) {
@@ -90,5 +118,18 @@ export class ProjectHub {
     } catch (e) {
       alert(e instanceof Error ? e.message : '参加に失敗しました');
     }
+  }
+
+  async onApproveInvitation(projectId: string): Promise<void> {
+    const userId = this.auth.userId();
+    if (!userId) {
+      return;
+    }
+    const result = await this.projectService.approveInvitation(projectId, userId);
+    this.projectOpened.emit({
+      projectId: result.projectId,
+      projectName: result.projectName,
+    });
+    this.getInvitedProjects();
   }
 }

@@ -9,7 +9,6 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatMenuModule } from '@angular/material/menu';
-import { saveTaskShellScrollPosition } from '../task-shell-scroll';
 import { taskDetailScopeParam, type TaskScope } from '../task-scope';
 import { taskStatusTransitionPatch } from '../task-firestore-mutation';
 import { TaskListDataService } from './task-list-data.service';
@@ -429,7 +428,6 @@ export class TaskListKanbanView{
         if (!id) {
         return;
         }
-        saveTaskShellScrollPosition();
         void this.router.navigate(['/task', taskDetailScopeParam(this.taskScope), id], {
         queryParams: { from: 'kanban' },
         });
