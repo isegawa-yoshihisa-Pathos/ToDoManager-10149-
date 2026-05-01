@@ -1,6 +1,5 @@
 {
-  "storage": {
-  },
+  "storage": {},
   "emulators": {
     "dataconnect": {
       "dataDir": "dataconnect/.dataconnect/pgliteData"
@@ -25,5 +24,19 @@
         "npm --prefix \"$RESOURCE_DIR\" run build"
       ]
     }
-  ]
+  ],
+  "hosting": {
+    "public": "dist/angular-practice/browser",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
 }

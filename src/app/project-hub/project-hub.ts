@@ -37,6 +37,11 @@ export class ProjectHub implements OnInit {
   joinPassword = '';
 
   invitedProjects: { projectId: string, invitedAt: Timestamp }[] = [];
+  /** Callable / Firestore 処理中 */
+  creatingProject = false;
+  joiningProject = false;
+  /** 招待一覧で該当プロジェクトの承認・辞退処理中 */
+  busyInvitedProjectId: string | null = null;
 
   ngOnInit(): void {
     this.getInvitedProjects();
@@ -47,6 +52,7 @@ export class ProjectHub implements OnInit {
     if (!userId) {
       return;
     }
+    this.creatingProject = true;
     try {
       const row = await this.projectService.createProject(
         this.createProjectId,
@@ -60,6 +66,8 @@ export class ProjectHub implements OnInit {
       this.projectOpened.emit({ projectId: row.projectId, projectName: row.projectName });
     } catch (e) {
       alert(e instanceof Error ? e.message : '作成に失敗しました');
+    } finally {
+      this.creatingProject = false;
     }
   }
 
@@ -88,8 +96,15 @@ export class ProjectHub implements OnInit {
     if (!email) {
       return;
     }
-    await this.projectService.cancelInvitation(projectId, email);
-    this.getInvitedProjects();
+    this.busyInvitedProjectId = projectId;
+    try {
+      await this.projectService.cancelInvitation(projectId, email);
+      await this.getInvitedProjects();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'キャンセルに失敗しました');
+    } finally {
+      this.busyInvitedProjectId = null;
+    }
   }
 
   async onJoinProject(): Promise<void> {
@@ -97,6 +112,7 @@ export class ProjectHub implements OnInit {
     if (!userId) {
       return;
     }
+    this.joiningProject = true;
     try {
       const result = await this.projectService.joinProject(
         this.joinProjectId,
@@ -117,6 +133,8 @@ export class ProjectHub implements OnInit {
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : '参加に失敗しました');
+    } finally {
+      this.joiningProject = false;
     }
   }
 
@@ -125,11 +143,18 @@ export class ProjectHub implements OnInit {
     if (!userId) {
       return;
     }
-    const result = await this.projectService.approveInvitation(projectId, userId);
-    this.projectOpened.emit({
-      projectId: result.projectId,
-      projectName: result.projectName,
-    });
-    this.getInvitedProjects();
+    this.busyInvitedProjectId = projectId;
+    try {
+      const result = await this.projectService.approveInvitation(projectId, userId);
+      this.projectOpened.emit({
+        projectId: result.projectId,
+        projectName: result.projectName,
+      });
+      await this.getInvitedProjects();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '承認に失敗しました');
+    } finally {
+      this.busyInvitedProjectId = null;
+    }
   }
 }

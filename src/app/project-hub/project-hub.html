@@ -44,7 +44,18 @@
           name="createPassword"
         />
       </mat-form-field>
-      <button mat-flat-button color="primary" type="button" (click)="onCreateProject()">作成</button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="creatingProject"
+        (click)="onCreateProject()"
+      >
+        {{ creatingProject ? '処理中…' : '作成' }}
+      </button>
+      @if (creatingProject) {
+        <p class="busy-hint" aria-live="polite">読み込み中です。しばらくお待ちください。</p>
+      }
     </div>
     <div class="form-card">
       <h3 class="card-title">プロジェクトに参加</h3>
@@ -54,8 +65,20 @@
           <span class="project-id">ID: {{ invitedProject.projectId }}</span>
           <span class="invited-at">{{ invitedProject.invitedAt.toDate() | date: 'yyyy/MM/dd HH:mm' }}</span>
           <div class="invited-project-actions">
-            <mat-icon (click)="onApproveInvitation(invitedProject.projectId)" class="approve-button" matTooltip="承認">check</mat-icon>
-            <mat-icon (click)="onCancelInvitation(invitedProject.projectId)" class="cancel-button" matTooltip="キャンセル">close</mat-icon>
+            @if (busyInvitedProjectId === invitedProject.projectId) {
+              <span class="busy-inline" aria-live="polite">処理中…</span>
+            } @else {
+              <mat-icon
+                (click)="onApproveInvitation(invitedProject.projectId)"
+                class="approve-button"
+                matTooltip="承認"
+              >check</mat-icon>
+              <mat-icon
+                (click)="onCancelInvitation(invitedProject.projectId)"
+                class="cancel-button"
+                matTooltip="キャンセル"
+              >close</mat-icon>
+            }
           </div>
         </li>
       </ul>
@@ -82,7 +105,18 @@
           name="joinPassword"
         />
       </mat-form-field>
-      <button mat-flat-button color="primary" type="button" (click)="onJoinProject()">参加</button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="joiningProject"
+        (click)="onJoinProject()"
+      >
+        {{ joiningProject ? '処理中…' : '参加' }}
+      </button>
+      @if (joiningProject) {
+        <p class="busy-hint" aria-live="polite">読み込み中です。しばらくお待ちください。</p>
+      }
     </div>
   </div>
 </div>

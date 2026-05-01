@@ -4,7 +4,11 @@
     <li *ngFor="let m of members" class="member-row">
       <span class="member-name">{{ m.displayName }}</span>
       @if (notYou(m.userId)) {
-        <mat-icon (click)="onLeaveMember(m.userId)" matTooltip="脱退" class="reject-button">cancel</mat-icon>
+        @if (leaveMemberBusyUserId === m.userId) {
+          <span class="busy-inline" aria-live="polite">処理中…</span>
+        } @else {
+          <mat-icon (click)="onLeaveMember(m.userId)" matTooltip="脱退" class="reject-button">cancel</mat-icon>
+        }
       }
     </li>
   </ul>
@@ -14,7 +18,11 @@
     <li *ngFor="let i of invited" class="member-row">
       <span class="member-name" matTooltip="招待時間：{{ i.invitedAt | date: 'yyyy/MM/dd HH:mm' }}">{{ i.email }}</span>
       <span class="inviter">By: {{ i.invitedBy }}</span>
-      <mat-icon (click)="onCancelInvitation(i.email)" matTooltip="キャンセル" class="reject-button">cancel</mat-icon>
+      @if (cancelInvitationBusyEmail === i.email) {
+        <span class="busy-inline" aria-live="polite">処理中…</span>
+      } @else {
+        <mat-icon (click)="onCancelInvitation(i.email)" matTooltip="キャンセル" class="reject-button">cancel</mat-icon>
+      }
     </li>
   </ul>
 </div>

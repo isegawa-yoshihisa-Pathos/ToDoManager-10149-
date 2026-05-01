@@ -1,18 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
-import {
-  Firestore,
-  doc,
-  getDoc,
-  setDoc,
-  collection,
-  getDocs,
-  deleteDoc,
-  updateDoc,
-  writeBatch,
-  serverTimestamp,
-  Timestamp,
-} from '@angular/fire/firestore';
+import { Firestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, updateDoc, serverTimestamp, Timestamp, query, where } from '@angular/fire/firestore';
+import { Functions, httpsCallable } from '@angular/fire/functions';
+import { FirebaseError } from 'firebase/app';
 
 export interface ProjectMembershipRow {
   projectId: string;
@@ -29,10 +19,27 @@ export function normalizeAccountEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Cloud Functions `joinProject` / `approveInvitation` の戻り値 */
+interface ProjectGateCallableResult {
+  status: boolean;
+  projectName: string;
+}
+
+function parseProjectGateResult(data: unknown): ProjectGateCallableResult {
+  if (!data || typeof data !== 'object') {
+    throw new Error('サーバーから無効な応答がありました');
+  }
+  const o = data as Record<string, unknown>;
+  const projectName = typeof o['projectName'] === 'string' ? o['projectName'] : '';
+  const status = o['status'] === true;
+  return { status, projectName };
+}
+
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
+  private readonly functions = inject(Functions);
 
   private assertProjectId(projectId: string): string {
     const id = projectId.trim();
@@ -71,19 +78,20 @@ export class ProjectService {
     if (!password) {
       throw new Error('パスワードを入力してください');
     }
-    const projectRef = doc(this.firestore, 'projects', projectId);
-    const existing = await getDoc(projectRef);
-    if (existing.exists()) {
-      throw new Error('このプロジェクトIDは既に使われています。別のIDを指定するか、参加から入ってください。');
+
+    const createProjectFn = httpsCallable(this.functions, 'createProject');
+    try {
+      await createProjectFn({ projectId, projectName: name, password, userId, email: creatorEmail });
+    } catch (error: unknown) {
+      console.error('createProject callable failed', error);
+      if (error instanceof FirebaseError && error.message) {
+        throw new Error(error.message);
+      }
+      if (error instanceof Error && error.message) {
+        throw error;
+      }
+      throw new Error('プロジェクト作成に失敗しました');
     }
-    await setDoc(projectRef, {
-      name,
-      password,
-      createdBy: userId,
-      createdAt: serverTimestamp(),
-    });
-    await this.addMember(projectId, userId);
-    await this.saveMembership(userId, projectId, name);
     return { projectId, projectName: name, joinedAt: null };
   }
 
@@ -106,100 +114,28 @@ export class ProjectService {
       throw new Error('ログイン中のメールアドレスが取得できません。');
     }
 
-    const projectRef = doc(this.firestore, 'projects', projectId);
-    const snap = await getDoc(projectRef);
-    if (!snap.exists()) {
-      throw new Error('プロジェクトが見つかりません。プロジェクトIDとパスワードを確認してください。');
-    }
-    const data = snap.data() as { password?: string; name?: string };
-    if (data['password'] !== password) {
-      throw new Error('パスワードが正しくありません');
-    }
-    const projectName = typeof data['name'] === 'string' ? data['name'] : projectId;
-
-    const memberRef = doc(this.firestore, 'projects', projectId, 'members', userId);
-    const memberSnap = await getDoc(memberRef);
-    const tabRef = doc(this.firestore, 'accounts', userId, 'projectMemberships', projectId);
-    const tabSnap = await getDoc(tabRef);
-
-    if (memberSnap.exists()) {
-      if (!tabSnap.exists()) {
-        await this.saveMembership(userId, projectId, projectName);
-      }
-      return {
-        status: 'tabOpened',
-        row: { projectId, projectName, joinedAt: null },
-      };
-    }
-
-    const authenticatedRef = doc(this.firestore, 'projects', projectId, 'authenticatedEmails', email);
-    const invitedRef = doc(this.firestore, 'projects', projectId, 'invitedEmails', email);
-    const invitedProjectRef = doc(this.firestore, 'accounts', userId, 'invitedProjects', projectId);
-    const authenticatedSnap = await getDoc(authenticatedRef);
-    const invitedSnap = await getDoc(invitedRef);
-    const invitedProjectSnap = await getDoc(invitedProjectRef);
-    if (authenticatedSnap.exists() || invitedSnap.exists() || invitedProjectSnap.exists()) {
-      if (!authenticatedSnap.exists()) {
-        const data = invitedSnap.data() as { invitedBy: string };
-        const invitedBy = data.invitedBy;
-        await this.ensureAuthenticatedEmailRecord(projectId, email, invitedBy);
-        await deleteDoc(invitedProjectRef);
-        await deleteDoc(invitedRef);
-      }
-      await this.addMember(projectId, userId);
-      await this.saveMembership(userId, projectId, projectName);
-      return {
-        status: 'tabOpened',
-        row: { projectId, projectName, joinedAt: null },
-      };
-    }
-
-    await setDoc(
-      doc(this.firestore, 'projects', projectId, 'pendingJoinRequests', userId),
-      {
-        emailLower: email,
-        requestedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    return { status: 'pendingApproval', projectId, projectName };
+    const joinProjectFn = httpsCallable(this.functions, 'joinProject');
+    const result = await joinProjectFn({ projectId, password, userId, email });
+    return result.data as JoinProjectResult;
   }
 
   async approveInvitation(
     projectIdRaw: string,
     userId: string,
   ): Promise<{ projectId: string; projectName: string }> {
+
     const projectId = this.assertProjectId(projectIdRaw);
     const emailRaw = this.auth.currentUser?.email;
     const email = emailRaw ? normalizeAccountEmail(emailRaw) : '';
     if (!email) {
       throw new Error('ログイン中のメールアドレスが取得できません。');
     }
-    const projectRef = doc(this.firestore, 'projects', projectId);
-    const snap = await getDoc(projectRef);
-    if (!snap.exists()) {
-      throw new Error('プロジェクトが見つかりません。プロジェクトIDとパスワードを確認してください。');
-    }
-    const data = snap.data() as { password?: string; name?: string };
-    const projectName = typeof data['name'] === 'string' ? data['name'] : projectId;
-
-    const authenticatedRef = doc(this.firestore, 'projects', projectId, 'authenticatedEmails', email);
-    const invitedRef = doc(this.firestore, 'projects', projectId, 'invitedEmails', email);
-    const invitedProjectRef = doc(this.firestore, 'accounts', userId, 'invitedProjects', projectId);
-    const authenticatedSnap = await getDoc(authenticatedRef);
-    const invitedSnap = await getDoc(invitedRef);
-    const invitedProjectSnap = await getDoc(invitedProjectRef);
-    if (authenticatedSnap.exists() || invitedSnap.exists() || invitedProjectSnap.exists()) {
-      if (!authenticatedSnap.exists()) {
-        const data = invitedSnap.data() as { invitedBy: string };
-        const invitedBy = data.invitedBy;
-        await this.ensureAuthenticatedEmailRecord(projectId, email, invitedBy);
-        await deleteDoc(invitedProjectRef);
-        await deleteDoc(invitedRef);
-      }
-      await this.addMember(projectId, userId);
-      await this.saveMembership(userId, projectId, projectName);
-      return {projectId, projectName};
+    
+    const approveInvitationFn = httpsCallable(this.functions, 'approveInvitation');
+    const result = await approveInvitationFn({ projectId, userId, email });
+    const gate = parseProjectGateResult(result.data);
+    if (gate.status) {
+      return { projectId, projectName: gate.projectName };
     }
     throw new Error('招待が見つかりません');
   }
@@ -216,18 +152,6 @@ export class ProjectService {
     if (!email || !email.includes('@')) {
       throw new Error('有効なメールアドレスを入力してください');
     }
-    const accountCol = collection(this.firestore, 'accounts');
-    const accountSnap = await getDocs(accountCol);
-    for (const account of accountSnap.docs) {
-      const accountData = account.data() as { emailLower?: string };
-      if (accountData['emailLower'] === email) {
-        await setDoc(doc(this.firestore, 'accounts', account.id, 'invitedProjects', projectId), {
-          invitedAt: serverTimestamp(),
-          invitedBy: adminUserId,
-        });
-        break;
-      }
-    }
     await setDoc(
       doc(this.firestore, 'projects', projectId, 'invitedEmails', email),
       {
@@ -237,7 +161,10 @@ export class ProjectService {
     );
   }
 
-  /** 未認証の参加申請を承認 → 認証フォルダへ反映しメンバー化（タブ用 membership も付与） */
+  /**
+   * 未認証の参加申請を承認 → メンバー化（Functions）後に authenticatedEmails を更新し、申請 doc を削除。
+   * 途中で失敗した場合は再試行・手動整理が必要になるため、エラー時は UI で再読込を促す。
+   */
   async approveJoinRequest(
     projectId: string,
     requestUserId: string,
@@ -265,11 +192,11 @@ export class ProjectService {
       typeof reqData['emailLower'] === 'string' && reqData['emailLower'].trim() !== ''
         ? normalizeAccountEmail(reqData['emailLower'])
         : '';
-    await this.addMember(projectId, requestUserId);
+    const addMemberFn = httpsCallable(this.functions, 'addMember');
+    await addMemberFn({ projectId, userId: requestUserId, projectName });
     if (reqEmail) {
       await this.ensureAuthenticatedEmailRecord(projectId, reqEmail, adminUserId);
     }
-    await this.saveMembership(requestUserId, projectId, projectName);
     await deleteDoc(reqRef);
   }
 
@@ -303,21 +230,20 @@ export class ProjectService {
   }
 
   async cancelInvitation(projectId: string, email: string): Promise<void> {
-    const invitedRef = doc(this.firestore, 'projects', projectId, 'invitedEmails', email);
-    const invitedSnap = await getDoc(invitedRef);
-    if (!invitedSnap.exists()) {
-      throw new Error('招待が見つかりません');
+    const uid = this.auth.currentUser?.uid;
+    const selfEmailNorm = this.auth.currentUser?.email
+      ? normalizeAccountEmail(this.auth.currentUser.email)
+      : '';
+    const argEmailNorm = normalizeAccountEmail(email);
+    if (uid && selfEmailNorm !== '' && selfEmailNorm === argEmailNorm) {
+      await deleteDoc(doc(this.firestore, 'accounts', uid, 'invitedProjects', projectId));
+      return;
     }
-    await deleteDoc(invitedRef);
-    const accountCol = collection(this.firestore, 'accounts');
-    const accountSnap = await getDocs(accountCol);
-    for (const account of accountSnap.docs) {
-      const accountData = account.data() as { emailLower?: string };
-      if (accountData['emailLower'] === email){
-        await deleteDoc(doc(this.firestore, 'accounts', account.id, 'invitedProjects', projectId));
-        break;
-      }
+    const emailLower = argEmailNorm;
+    if (!emailLower || !emailLower.includes('@')) {
+      throw new Error('有効なメールアドレスを入力してください');
     }
+    await deleteDoc(doc(this.firestore, 'projects', projectId, 'invitedEmails', emailLower));
   }
 
   /** `authenticatedEmails` にメールを登録（認証済み扱い） */
@@ -337,90 +263,25 @@ export class ProjectService {
     );
   }
 
-  private async addMember(projectId: string, userId: string): Promise<void> {
-    const accSnap = await getDoc(doc(this.firestore, 'accounts', userId));
-    let displayName = userId;
-    let avatarUrl: string | null = null;
-    let emailFromAccount: string | null = null;
-    if (accSnap.exists()) {
-      const d = accSnap.data() as {
-        displayName?: string;
-        avatarUrl?: string;
-        emailLower?: string;
-      };
-      displayName =
-        typeof d['displayName'] === 'string' && d['displayName'].trim() !== ''
-          ? d['displayName'].trim()
-          : userId;
-      if (typeof d['avatarUrl'] === 'string' && d['avatarUrl'].trim() !== '') {
-        avatarUrl = d['avatarUrl'].trim();
-      }
-      if (typeof d['emailLower'] === 'string' && d['emailLower'].trim() !== '') {
-        emailFromAccount = normalizeAccountEmail(d['emailLower']);
-      }
-    }
-    const memberRef = doc(this.firestore, 'projects', projectId, 'members', userId);
-    const payload: Record<string, unknown> = {
-      userId,
-      displayName,
-      joinedAt: serverTimestamp(),
-    };
-    if (avatarUrl) {
-      payload['avatarUrl'] = avatarUrl;
-    }
-    await setDoc(memberRef, payload);
-
-    let emailForApproved = emailFromAccount;
-    if (!emailForApproved && this.auth.currentUser?.uid === userId) {
-      const e = this.auth.currentUser.email;
-      emailForApproved = e ? normalizeAccountEmail(e) : null;
-    }
-    if (emailForApproved) {
-      await this.ensureAuthenticatedEmailRecord(projectId, emailForApproved, userId);
-    }
-  }
-
-  private async saveMembership(
-    userId: string,
-    projectId: string,
-    projectName: string,
-  ): Promise<void> {
-    const mRef = doc(this.firestore, 'accounts', userId, 'projectMemberships', projectId);
-    await setDoc(mRef, {
-      projectName,
-      joinedAt: serverTimestamp(),
-    });
-  }
-
   /**
    * 表示名を変更する。`projects/{id}.name` と全メンバーの `projectMemberships` の `projectName` を更新する。
    */
   async renameProject(
     projectId: string,
     newName: string,
-    requesterUsername: string,
+    requesterUserId: string,
   ): Promise<void> {
     const name = newName.trim();
     if (!name) {
       throw new Error('プロジェクト名を入力してください');
     }
-    const memberRef = doc(this.firestore, 'projects', projectId, 'members', requesterUsername);
+    const memberRef = doc(this.firestore, 'projects', projectId, 'members', requesterUserId);
     const memberSnap = await getDoc(memberRef);
     if (!memberSnap.exists()) {
       throw new Error('このプロジェクトのメンバーではありません');
     }
     const projectRef = doc(this.firestore, 'projects', projectId);
     await updateDoc(projectRef, { name });
-
-    const membersCol = collection(this.firestore, 'projects', projectId, 'members');
-    const membersSnap = await getDocs(membersCol);
-    const batch = writeBatch(this.firestore);
-    for (const d of membersSnap.docs) {
-      const uname = d.id;
-      const mRef = doc(this.firestore, 'accounts', uname, 'projectMemberships', projectId);
-      batch.update(mRef, { projectName: name });
-    }
-    await batch.commit();
   }
 
   /** プロジェクトから脱退させる。再参加は再認証が必要。最後の人は抜けられない。 */
@@ -436,44 +297,12 @@ export class ProjectService {
     if (membersSnap.docs.length === 1) {
       throw new Error('最後のメンバーは抜けられません\nプロジェクトを削除してください');
     }
-    const membershipRef = doc(this.firestore, 'accounts', userId, 'projectMemberships', projectId);
-
-    let emailForApproval: string | null = null;
-    const curUid = this.auth.currentUser?.uid;
-    if (curUid === userId) {
-      const e = this.auth.currentUser?.email;
-      emailForApproval = e ? normalizeAccountEmail(e) : null;
-    } else {
-      const accSnap = await getDoc(doc(this.firestore, 'accounts', userId));
-      if (accSnap.exists()) {
-        const d = accSnap.data() as { emailLower?: string };
-        if (typeof d['emailLower'] === 'string' && d['emailLower'].trim() !== '') {
-          emailForApproval = normalizeAccountEmail(d['emailLower']);
-        }
-      }
-    }
-
-    const authEmailRef =
-      emailForApproval !== null && emailForApproval !== ''
-        ? doc(
-            this.firestore,
-            'projects',
-            projectId,
-            'authenticatedEmails',
-            emailForApproval,
-          )
-        : null;
-
-    const ops: Promise<unknown>[] = [deleteDoc(memberRef), deleteDoc(membershipRef)];
-    if (authEmailRef) {
-      ops.push(deleteDoc(authEmailRef));
-    }
-    await Promise.all(ops);
+    await deleteDoc(memberRef);
   }
 
   /** メンバーなら誰でも削除可能。サブコレクションと全員の membership を消す。 */
-  async deleteProject(projectId: string, requesterUsername: string): Promise<void> {
-    await this.assertIsProjectMember(projectId, requesterUsername);
+  async deleteProject(projectId: string, requesterUserId: string): Promise<void> {
+    await this.assertIsProjectMember(projectId, requesterUserId);
     await deleteDoc(doc(this.firestore, 'projects', projectId));
   }
 }

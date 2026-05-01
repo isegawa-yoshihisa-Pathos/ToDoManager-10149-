@@ -138,6 +138,7 @@ export class AuthService {
       await setDoc(doc(this.firestore, 'accounts', cred.user.uid), {
         displayName,
         emailLower: email,
+        avatarUrl: null,
       });
     } finally {
       this.signUpHydrationLock = false;
@@ -198,30 +199,13 @@ export class AuthService {
     }
     const ref = doc(this.firestore, 'accounts', uid);
     if (downloadUrl === null || downloadUrl.trim() === '') {
-      await updateDoc(ref, { avatarUrl: deleteField() });
+      await updateDoc(ref, { avatarUrl: null });
       this.avatarUrl.set(null);
     } else {
       const u = downloadUrl.trim();
       await updateDoc(ref, { avatarUrl: u });
       this.avatarUrl.set(u);
     }
-
-    const membershipsCol = collection(this.firestore, 'accounts', uid, 'projectMemberships');
-    const membershipsSnap = await getDocs(membershipsCol);
-    if (membershipsSnap.empty) {
-      return;
-    }
-    const batch = writeBatch(this.firestore);
-    for (const d of membershipsSnap.docs) {
-      const projectId = d.id;
-      const memRef = doc(this.firestore, 'projects', projectId, 'members', uid);
-      if (downloadUrl === null || downloadUrl.trim() === '') {
-        batch.update(memRef, { avatarUrl: deleteField() });
-      } else {
-        batch.update(memRef, { avatarUrl: downloadUrl.trim() });
-      }
-    }
-    await batch.commit();
   }
 
   async signOut(): Promise<void> {

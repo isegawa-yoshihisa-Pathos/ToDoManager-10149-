@@ -1,5 +1,10 @@
 .project-hub {
-  margin: 0 1rem;
+  box-sizing: border-box;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 .hub-actions {
@@ -82,4 +87,16 @@
   display: block;
   width: 100%;
   margin-bottom: 10px;
+}
+
+.busy-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.busy-inline {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.55);
+  margin-right: 4px;
 }

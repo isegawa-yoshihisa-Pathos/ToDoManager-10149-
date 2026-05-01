@@ -1,9 +1,19 @@
+:host {
+  display: block;
+  box-sizing: border-box;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
 .state {
-  margin: 1rem;
+  margin: 1rem 0;
 }
 
 .detail-header {
-  margin: 0 1rem 0.5rem;
+  margin: 0 0 0.5rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -66,7 +76,7 @@
 
 .detail-body {
   max-width: 560px;
-  margin: 0 1rem 2rem;
+  margin: 0 0 2rem;
 }
 
 .field {

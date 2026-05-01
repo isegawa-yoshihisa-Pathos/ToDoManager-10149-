@@ -40,6 +40,9 @@ export class ProjectMembers implements OnInit, OnDestroy {
   members: ProjectMemberRow[] = [];
   invited: InvitedEmailRow[] = [];
 
+  cancelInvitationBusyEmail: string | null = null;
+  leaveMemberBusyUserId: string | null = null;
+
   ngOnInit(): void {
     const membersRef = collection(this.firestore, 'projects', this.projectId, 'members');
     const invitedRef = collection(this.firestore, 'projects', this.projectId, 'invitedEmails');
@@ -103,10 +106,13 @@ export class ProjectMembers implements OnInit, OnDestroy {
     ) {
       return;
     }
+    this.cancelInvitationBusyEmail = email;
     try {
       await this.projectService.cancelInvitation(this.projectId, email);
     } catch (e) {
       alert(e instanceof Error ? e.message : '招待を取り消すことに失敗しました');
+    } finally {
+      this.cancelInvitationBusyEmail = null;
     }
   }
 
@@ -122,10 +128,13 @@ export class ProjectMembers implements OnInit, OnDestroy {
     ) {
       return;
     }
+    this.leaveMemberBusyUserId = userId;
     try {
       await this.projectService.leaveProject(this.projectId, userId, adminUserId);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'メンバーを脱退させることに失敗しました');
+    } finally {
+      this.leaveMemberBusyUserId = null;
     }
   }
 

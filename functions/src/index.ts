@@ -6,6 +6,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { CloudTasksClient } from '@google-cloud/tasks';
 
+export * from './firestore-mutation.js';
+
 admin.initializeApp();
 
 const db = admin.firestore();

@@ -55,6 +55,9 @@ export class ProjectSettings implements OnInit, OnDestroy {
   approveSaving = false;
   approveError: string | null = null;
 
+  leaveProjectBusy = false;
+  deleteProjectBusy = false;
+
   pendingJoinRequests: { userId: string; email: string }[] = [];
   /** 認証／拒否のどちらか処理中の申請ユーザー ID */
   joinRequestBusyUserId: string | null = null;
@@ -297,11 +300,14 @@ export class ProjectSettings implements OnInit, OnDestroy {
     ) {
       return;
     }
+    this.leaveProjectBusy = true;
     try {
       await this.projectService.leaveProject(this.projectId, userId, userId);
       void this.router.navigate(['/user-window']);
     } catch (e) {
       alert(e instanceof Error ? e.message : '脱退に失敗しました');
+    } finally {
+      this.leaveProjectBusy = false;
     }
   }
 
@@ -317,11 +323,14 @@ export class ProjectSettings implements OnInit, OnDestroy {
     ) {
       return;
     }
+    this.deleteProjectBusy = true;
     try {
       await this.projectService.deleteProject(this.projectId, userId);
       void this.router.navigate(['/user-window']);
     } catch (e) {
       alert(e instanceof Error ? e.message : '削除に失敗しました');
+    } finally {
+      this.deleteProjectBusy = false;
     }
   }
 }

@@ -1,6 +1,11 @@
 .project-settings {
-  margin: 0 1rem 2rem;
+  box-sizing: border-box;
   max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 2rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 .title {
@@ -131,6 +136,17 @@
 
 .state {
   margin: 1rem 0;
+}
+
+.busy-line {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.busy-inline {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.55);
 }
 
 .toolbar {

@@ -29,11 +29,14 @@
           [disabled]="renameSaving"
           (click)="saveProjectName()"
         >
-          保存
+          {{ renameSaving ? '処理中…' : '保存' }}
         </button>
       </div>
       @if (renameError) {
         <p class="rename-error">{{ renameError }}</p>
+      }
+      @if (renameSaving) {
+        <p class="state busy-line" aria-live="polite">読み込み中です。しばらくお待ちください。</p>
       }
     </div>
 
@@ -83,11 +86,14 @@
             [disabled]="approveSaving"
             (click)="onGrantApprovedEmail()"
           >
-            認証
+            {{ approveSaving ? '処理中…' : '認証' }}
           </button>
         </div>
         @if (approveError) {
           <p class="approval-error">{{ approveError }}</p>
+        }
+        @if (approveSaving) {
+          <p class="state busy-line" aria-live="polite">読み込み中です。しばらくお待ちください。</p>
         }
 
         @if (pendingJoinRequests.length) {
@@ -98,24 +104,26 @@
                 <li class="join-request-item">
                   <span class="join-request-email">{{ r.email }}</span>
                   <span class="join-request-actions">
-                    <button
-                      mat-stroked-button
-                      color="primary"
-                      type="button"
-                      [disabled]="joinRequestBusyUserId === r.userId"
-                      (click)="onApproveJoinRequest(r.userId)"
-                    >
-                      認証
-                    </button>
-                    <button
-                      mat-stroked-button
-                      color="warn"
-                      type="button"
-                      [disabled]="joinRequestBusyUserId === r.userId"
-                      (click)="onRejectJoinRequest(r.userId)"
-                    >
-                      拒否
-                    </button>
+                    @if (joinRequestBusyUserId === r.userId) {
+                      <span class="busy-inline" aria-live="polite">処理中…</span>
+                    } @else {
+                      <button
+                        mat-stroked-button
+                        color="primary"
+                        type="button"
+                        (click)="onApproveJoinRequest(r.userId)"
+                      >
+                        認証
+                      </button>
+                      <button
+                        mat-stroked-button
+                        color="warn"
+                        type="button"
+                        (click)="onRejectJoinRequest(r.userId)"
+                      >
+                        拒否
+                      </button>
+                    }
                   </span>
                 </li>
               }
@@ -151,10 +159,27 @@
     }
 
     <div class="toolbar toolbar-danger">
-      <button mat-stroked-button type="button" (click)="onLeaveProject()">プロジェクトを脱退</button>
-      <button mat-flat-button color="warn" class="project-delete" type="button" (click)="onDeleteProject()">
-        プロジェクトを削除
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="leaveProjectBusy || deleteProjectBusy"
+        (click)="onLeaveProject()"
+      >
+        {{ leaveProjectBusy ? '処理中…' : 'プロジェクトを脱退' }}
+      </button>
+      <button
+        mat-flat-button
+        color="warn"
+        class="project-delete"
+        type="button"
+        [disabled]="leaveProjectBusy || deleteProjectBusy"
+        (click)="onDeleteProject()"
+      >
+        {{ deleteProjectBusy ? '処理中…' : 'プロジェクトを削除' }}
       </button>
     </div>
+    @if (leaveProjectBusy || deleteProjectBusy) {
+      <p class="state busy-line" aria-live="polite">読み込み中です。しばらくお待ちください。</p>
+    }
   }
 </div>
