@@ -35,14 +35,59 @@ function tasksCollectionForEvent(context: EventContext): admin.firestore.Collect
   throw new Error('onTaskDeleted: 未対応のドキュメントパス');
 }
 
+/** タスク単位のチャット添付（`task-detail` のパス規則と一致）を Storage から削除 */
+async function deleteTaskChatFilesFromStorage(context: EventContext, taskId: string): Promise<void> {
+  const p = context.params;
+  let prefix: string | null = null;
+  if (p.projectId) {
+    prefix = `chat/proj/${p.projectId}/tasks/${taskId}/msg/`;
+  } else if (p.listId && p.userId) {
+    prefix = `chat/acc/${p.userId}/pl/${p.listId}/tasks/${taskId}/msg/`;
+  } else if (p.userId) {
+    prefix = `chat/acc/${p.userId}/tasks/${taskId}/msg/`;
+  }
+  if (!prefix) {
+    return;
+  }
+  try {
+    const bucket = admin.storage().bucket();
+    await bucket.deleteFiles({ prefix });
+    console.log(`deleteTaskChatFilesFromStorage: prefix=${prefix}`);
+  } catch (e) {
+    console.error('deleteTaskChatFilesFromStorage failed:', e);
+  }
+}
+
+async function deleteCollectionInBatches(
+  colRef: admin.firestore.CollectionReference,
+  label: string,
+): Promise<void> {
+  for (;;) {
+    const snap = await colRef.limit(BATCH_SIZE).get();
+    if (snap.empty) {
+      return;
+    }
+    const batch = db.batch();
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
+    console.log(
+      `deleteCollectionInBatches: removed ${snap.size} docs from ${label} (path=${colRef.path})`,
+    );
+  }
+}
+
 async function handleTaskDocumentDeleted(
-  _snapshot: admin.firestore.DocumentSnapshot,
+  snapshot: admin.firestore.DocumentSnapshot,
   context: EventContext,
 ): Promise<void> {
   const taskId = context.params.taskId;
   if (!taskId) {
     return;
   }
+  await deleteTaskChatFilesFromStorage(context, taskId);
+  await deleteCollectionInBatches(snapshot.ref.collection('messages'), `tasks/${taskId}/messages`);
   const col = tasksCollectionForEvent(context);
   for (;;) {
     const snap = await col.where('parentTaskId', '==', taskId).limit(BATCH_SIZE).get();

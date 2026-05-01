@@ -23,11 +23,13 @@ import {
   writeBatch,
 } from '@angular/fire/firestore';
 import { ProjectService } from './project.service';
+import { Storage, deleteObject, ref } from '@angular/fire/storage';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly auth = inject(Auth);
   private readonly firestore = inject(Firestore);
+  private readonly storage = inject(Storage);
   private readonly projectService = inject(ProjectService);
 
   /** Firebase Auth の UID。Firestore の `accounts/{uid}` 等のパスに使用 */
@@ -197,14 +199,34 @@ export class AuthService {
     if (!uid) {
       throw new Error('ログインしていません');
     }
-    const ref = doc(this.firestore, 'accounts', uid);
+    const previousUrl =
+      typeof this.avatarUrl() === 'string' && this.avatarUrl()!.trim() !== ''
+        ? this.avatarUrl()!.trim()
+        : null;
+    const accRef = doc(this.firestore, 'accounts', uid);
     if (downloadUrl === null || downloadUrl.trim() === '') {
-      await updateDoc(ref, { avatarUrl: null });
+      await updateDoc(accRef, { avatarUrl: null });
       this.avatarUrl.set(null);
+      await this.deleteFirebaseStorageFileByUrl(previousUrl);
     } else {
       const u = downloadUrl.trim();
-      await updateDoc(ref, { avatarUrl: u });
+      await updateDoc(accRef, { avatarUrl: u });
       this.avatarUrl.set(u);
+      if (previousUrl && previousUrl !== u) {
+        await this.deleteFirebaseStorageFileByUrl(previousUrl);
+      }
+    }
+  }
+
+  /** このアプリが Firebase Storage に置いたアバター URL のオブジェクトを削除（失敗しても握りつぶす） */
+  private async deleteFirebaseStorageFileByUrl(url: string | null | undefined): Promise<void> {
+    if (!url || !url.includes('firebasestorage.googleapis.com')) {
+      return;
+    }
+    try {
+      await deleteObject(ref(this.storage, url));
+    } catch (e) {
+      console.warn('deleteFirebaseStorageFileByUrl:', e);
     }
   }
 
@@ -240,6 +262,9 @@ export class AuthService {
     const accRef = doc(this.firestore, 'accounts', uid);
     const accSnap = await getDoc(accRef);
     if (accSnap.exists()) {
+      const av = accSnap.data()?.['avatarUrl'];
+      const url = typeof av === 'string' && av.trim() !== '' ? av.trim() : null;
+      await this.deleteFirebaseStorageFileByUrl(url);
       await deleteDoc(accRef);
     }
 
